@@ -1,0 +1,442 @@
+openapi: 3.0.0
+info:
+  title: Dethroned Game Backend API
+  description: REST API for managing game lobbies, players, and game sessions
+  version: 1.0.0
+  contact:
+    name: Dethroned Development Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.dethroned.example.com
+    description: Production server (placeholder)
+
+tags:
+  - name: Lobbies
+    description: Operations related to game lobbies
+  - name: Players
+    description: Operations related to players in lobbies
+
+paths:
+  /api/lobbies:
+    post:
+      tags:
+        - Lobbies
+      summary: Create a new lobby
+      description: Creates a new game lobby with specified settings. The host automatically becomes the owner.
+      operationId: createLobby
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLobbyRequest'
+      responses:
+        '201':
+          description: Lobby created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LobbyResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Lobbies
+      summary: Get all open lobbies
+      description: Retrieves a list of all open lobbies that are accepting new players
+      operationId: getOpenLobbies
+      responses:
+        '200':
+          description: List of open lobbies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LobbyResponse'
+
+  /api/lobbies/{lobbyId}:
+    get:
+      tags:
+        - Lobbies
+      summary: Get lobby details
+      description: Retrieves detailed information about a specific lobby including players and settings
+      operationId: getLobby
+      parameters:
+        - name: lobbyId
+          in: path
+          required: true
+          description: The unique identifier of the lobby
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lobby details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LobbyResponse'
+        '404':
+          description: Lobby not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Lobbies
+      summary: Delete a lobby
+      description: Deletes a lobby. Only the host can perform this action.
+      operationId: deleteLobby
+      parameters:
+        - name: lobbyId
+          in: path
+          required: true
+          description: The unique identifier of the lobby
+          schema:
+            type: string
+            format: uuid
+        - name: X-Host-Id
+          in: header
+          required: true
+          description: The host ID to verify ownership
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Lobby deleted successfully
+        '403':
+          description: Forbidden - only the host can delete the lobby
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Lobby not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/lobbies/{lobbyId}/players:
+    post:
+      tags:
+        - Players
+      summary: Add a player to lobby
+      description: Adds a new player to the lobby. Returns 409 if lobby is full.
+      operationId: addPlayer
+      parameters:
+        - name: lobbyId
+          in: path
+          required: true
+          description: The unique identifier of the lobby
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPlayerRequest'
+      responses:
+        '201':
+          description: Player added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerResponse'
+        '404':
+          description: Lobby not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - lobby is full
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/lobbies/{lobbyId}/players/{playerId}/ready:
+    post:
+      tags:
+        - Players
+      summary: Mark player as ready
+      description: Marks a player as ready to start the game. If all players are ready and minimum player count is met, lobby automatically transitions to READY status.
+      operationId: markPlayerReady
+      parameters:
+        - name: lobbyId
+          in: path
+          required: true
+          description: The unique identifier of the lobby
+          schema:
+            type: string
+            format: uuid
+        - name: playerId
+          in: path
+          required: true
+          description: The unique identifier of the player
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Player marked as ready successfully
+        '404':
+          description: Lobby or player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/lobbies/{lobbyId}/players/{playerId}:
+    delete:
+      tags:
+        - Players
+      summary: Remove player from lobby
+      description: Removes a player from the lobby. The lobby status is updated accordingly.
+      operationId: removePlayer
+      parameters:
+        - name: lobbyId
+          in: path
+          required: true
+          description: The unique identifier of the lobby
+          schema:
+            type: string
+            format: uuid
+        - name: playerId
+          in: path
+          required: true
+          description: The unique identifier of the player
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Player removed successfully
+        '404':
+          description: Lobby or player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CreateLobbyRequest:
+      type: object
+      required:
+        - hostId
+        - gameSettings
+      properties:
+        hostId:
+          type: string
+          description: The unique identifier of the host/creator
+          example: "host-123"
+        gameSettings:
+          $ref: '#/components/schemas/GameSettings'
+
+    AddPlayerRequest:
+      type: object
+      required:
+        - username
+        - role
+      properties:
+        username:
+          type: string
+          description: The player's username
+          minLength: 1
+          example: "Alice"
+        role:
+          $ref: '#/components/schemas/PlayerRole'
+
+    LobbyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the lobby
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        code:
+          type: string
+          description: 6-character alphanumeric code for easy sharing
+          example: "ABC123"
+        hostId:
+          type: string
+          description: The player ID of the lobby host
+          example: "host-123"
+        displayClientId:
+          type: string
+          nullable: true
+          description: The client ID of the display/screen connection
+        status:
+          $ref: '#/components/schemas/LobbyStatus'
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerResponse'
+          description: List of players currently in the lobby
+        settings:
+          $ref: '#/components/schemas/GameSettingsResponse'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the lobby was created
+          example: "2026-03-20T19:58:30.588865Z"
+        lastActivity:
+          type: string
+          format: date-time
+          description: Timestamp of last activity in the lobby
+          example: "2026-03-20T19:58:30.588865Z"
+
+    PlayerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the player
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        username:
+          type: string
+          description: The player's username
+          example: "Alice"
+        role:
+          $ref: '#/components/schemas/PlayerRole'
+        status:
+          $ref: '#/components/schemas/PlayerStatus'
+        joinedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the player joined the lobby
+          example: "2026-03-20T19:58:30.669756Z"
+
+    GameSettings:
+      type: object
+      required:
+        - minPlayers
+        - maxPlayers
+        - gameMode
+        - timeLimit
+        - fieldWidth
+        - fieldHeight
+      properties:
+        minPlayers:
+          type: integer
+          minimum: 1
+          description: Minimum number of players required to start the game
+          example: 2
+        maxPlayers:
+          type: integer
+          minimum: 1
+          description: Maximum number of players allowed in the lobby
+          example: 4
+        gameMode:
+          type: string
+          description: The game mode (e.g., 'elimination', 'score-based')
+          example: "elimination"
+        timeLimit:
+          type: integer
+          format: int64
+          description: Time limit in milliseconds (0 = unlimited)
+          example: 0
+        fieldWidth:
+          type: number
+          format: float
+          description: Width of the game field
+          example: 800
+        fieldHeight:
+          type: number
+          format: float
+          description: Height of the game field
+          example: 600
+
+    GameSettingsResponse:
+      type: object
+      properties:
+        minPlayers:
+          type: integer
+          example: 2
+        maxPlayers:
+          type: integer
+          example: 4
+        gameMode:
+          type: string
+          example: "elimination"
+        timeLimit:
+          type: integer
+          format: int64
+          example: 0
+        fieldWidth:
+          type: number
+          format: float
+          example: 800.0
+        fieldHeight:
+          type: number
+          format: float
+          example: 600.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: "Lobby not found: d9c65893-bf77-416c-a9c6-cddd43905215"
+        timestamp:
+          type: integer
+          format: int64
+          description: Timestamp when the error occurred (milliseconds since epoch)
+          example: 1774036710748
+
+    LobbyStatus:
+      type: string
+      enum:
+        - OPEN
+        - READY
+        - IN_PROGRESS
+        - FINISHED
+      description: |
+        The current status of the lobby:
+        - OPEN: Lobby is accepting new players
+        - READY: All players are ready and minimum player count met
+        - IN_PROGRESS: Game is currently running
+        - FINISHED: Game has ended
+
+    PlayerRole:
+      type: string
+      enum:
+        - PLAYER
+        - SPECTATOR
+        - HOST
+      description: |
+        The role of the player:
+        - PLAYER: Active game participant
+        - SPECTATOR: Observing but not playing
+        - HOST: Lobby creator/administrator
+
+    PlayerStatus:
+      type: string
+      enum:
+        - CONNECTED
+        - READY
+        - PLAYING
+        - DISCONNECTED
+      description: |
+        The current status of the player:
+        - CONNECTED: Player is connected but not ready
+        - READY: Player is ready to start
+        - PLAYING: Player is actively playing
+        - DISCONNECTED: Player has disconnected
