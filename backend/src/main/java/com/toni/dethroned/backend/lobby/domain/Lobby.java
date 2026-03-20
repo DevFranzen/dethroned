@@ -1,5 +1,7 @@
 package com.toni.dethroned.backend.lobby.domain;
 
+import com.toni.dethroned.backend.websocket.domain.ConnectionGroup;
+
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,6 +16,8 @@ public class Lobby {
     private GameSettings settings;
     private Instant createdAt;
     private Instant lastActivity;
+    private ConnectionGroup connectionGroup;
+    private Object game;
 
     public Lobby(String id, String code, String adminId, GameSettings settings) {
         this.id = id;
@@ -24,6 +28,8 @@ public class Lobby {
         this.players = new HashMap<>();
         this.createdAt = Instant.now();
         this.lastActivity = Instant.now();
+        this.connectionGroup = new ConnectionGroup(id);
+        this.game = null;
     }
 
     // Getters
@@ -126,5 +132,17 @@ public class Lobby {
             this.adminId = oldestPlayer.getId();
             updateLastActivity();
         }
+    }
+
+    public ConnectionGroup getConnectionGroup() {
+        return connectionGroup;
+    }
+
+    public Object getGame() {
+        return game;
+    }
+
+    public void setGame(Object game) {
+        this.game = game;
     }
 }

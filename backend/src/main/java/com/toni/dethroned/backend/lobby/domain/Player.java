@@ -1,6 +1,7 @@
 package com.toni.dethroned.backend.lobby.domain;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 public class Player {
     private String id;
@@ -9,6 +10,8 @@ public class Player {
     private PlayerStatus status;
     private String sessionId;
     private Instant joinedAt;
+    private boolean isConnected;
+    private LocalDateTime lastHeartbeat;
 
     public Player(String id, String username, PlayerRole role) {
         this.id = id;
@@ -16,6 +19,8 @@ public class Player {
         this.role = role;
         this.status = PlayerStatus.CONNECTED;
         this.joinedAt = Instant.now();
+        this.isConnected = false;
+        this.lastHeartbeat = LocalDateTime.now();
     }
 
     // Getters
@@ -49,5 +54,21 @@ public class Player {
 
     public Instant getJoinedAt() {
         return joinedAt;
+    }
+
+    public boolean isConnected() {
+        return isConnected;
+    }
+
+    public void setConnected(boolean connected) {
+        isConnected = connected;
+    }
+
+    public LocalDateTime getLastHeartbeat() {
+        return lastHeartbeat;
+    }
+
+    public void setLastHeartbeat(LocalDateTime lastHeartbeat) {
+        this.lastHeartbeat = lastHeartbeat;
     }
 }
