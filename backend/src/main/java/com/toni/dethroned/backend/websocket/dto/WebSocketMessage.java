@@ -3,7 +3,7 @@ package com.toni.dethroned.backend.websocket.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Generische WebSocket-Message für die Kommunikation zwischen Client und Server
+ * Generic WebSocket message for communication between client and server
  */
 public class WebSocketMessage {
     @JsonProperty("type")

@@ -38,7 +38,7 @@ class LobbyServiceTest {
         assertNotNull(lobby.getCode());
         assertEquals("player1", lobby.getAdminId());
         assertEquals(LobbyStatus.OPEN, lobby.getStatus());
-        assertEquals(1, lobby.getPlayers().size()); // Creator ist automatisch Member
+        assertEquals(1, lobby.getPlayers().size()); // Creator is automatically member
     }
 
     @Test
@@ -135,7 +135,7 @@ class LobbyServiceTest {
 
         lobbyService.playerLeaves(lobby.getId(), player.getId());
 
-        assertEquals(1, lobby.getPlayers().size()); // Admin bleibt
+        assertEquals(1, lobby.getPlayers().size()); // Admin remains
     }
 
     @Test
@@ -175,7 +175,7 @@ class LobbyServiceTest {
         lobbyService.markPlayerReady(lobby.getId(), player1.getId());
         assertEquals(LobbyStatus.OPEN, lobby.getStatus());
 
-        // Player 2 ready - now all 3 players ready, lobby transitions to READY
+        // Player 2 ready - all 3 players ready, lobby transitions to READY
         lobbyService.markPlayerReady(lobby.getId(), player2.getId());
         assertEquals(LobbyStatus.READY, lobby.getStatus());
     }

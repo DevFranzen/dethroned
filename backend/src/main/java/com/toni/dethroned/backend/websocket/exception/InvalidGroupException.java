@@ -1,7 +1,7 @@
 package com.toni.dethroned.backend.websocket.exception;
 
 /**
- * Exception wenn eine Gruppe nicht existiert oder nicht erreichbar ist
+ * Exception when a group does not exist or is not accessible
  */
 public class InvalidGroupException extends WebSocketException {
     public InvalidGroupException(String groupId) {

@@ -4,8 +4,8 @@ import com.toni.dethroned.backend.lobby.service.LobbyService;
 import org.springframework.stereotype.Service;
 
 /**
- * Service zur Verifikation ob ein Player Zugriff auf eine Session/Gruppe hat.
- * Wird verwendet um sicherzustellen dass nur autorisierte Players sich verbinden können.
+ * Service for verifying whether a player has access to a session/group.
+ * Used to ensure that only authorized players can connect.
  */
 @Service
 public class SessionVerificationService {
@@ -17,12 +17,12 @@ public class SessionVerificationService {
     }
 
     /**
-     * Verifies ob ein Player Zugriff auf eine Lobby hat.
-     * Der Player muss ein Member der Lobby sein.
+     * Verifies whether a player has access to a lobby.
+     * The player must be a member of the lobby.
      *
      * @param playerId Player ID
      * @param lobbyId Lobby ID
-     * @return true wenn Player in der Lobby ist, false sonst
+     * @return true if player is in the lobby, false otherwise
      */
     public boolean verifyLobbyAccess(String playerId, String lobbyId) {
         try {
@@ -34,16 +34,16 @@ public class SessionVerificationService {
     }
 
     /**
-     * Generische Verifikation für Gruppen-Zugriff.
-     * Für diese Phase wird nur Lobby-Zugriff verifikiert.
+     * Generic verification for group access.
+     * For this phase, only lobby access is verified.
      *
      * @param playerId Player ID
-     * @param groupId Gruppen ID (aktuell = Lobby ID)
-     * @return true wenn Player Zugriff hat, false sonst
+     * @param groupId Group ID (currently = Lobby ID)
+     * @return true if player has access, false otherwise
      */
     public boolean verifyGroupAccess(String playerId, String groupId) {
-        // Aktuell wird groupId als lobbyId behandelt
-        // Später könnte dies basierend auf Typ (LOBBY, GAME, etc.) unterschiedlich handled werden
+        // Currently groupId is treated as lobbyId
+        // Later this could be handled differently based on type (LOBBY, GAME, etc.)
         return verifyLobbyAccess(playerId, groupId);
     }
 }

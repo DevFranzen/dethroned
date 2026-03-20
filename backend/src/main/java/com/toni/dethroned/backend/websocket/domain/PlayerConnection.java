@@ -5,8 +5,8 @@ import org.springframework.web.socket.WebSocketSession;
 import java.time.LocalDateTime;
 
 /**
- * Repräsentiert eine WebSocket-Verbindung eines Players zu einer Gruppe.
- * Speichert Verbindungs-Metadaten wie Connect-Zeit und letzte Aktivität.
+ * Represents a WebSocket connection of a player to a group.
+ * Stores connection metadata such as connection time and last activity.
  */
 public class PlayerConnection {
     private String playerId;

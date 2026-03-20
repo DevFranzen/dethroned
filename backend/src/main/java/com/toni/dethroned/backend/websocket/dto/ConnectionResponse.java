@@ -3,7 +3,7 @@ package com.toni.dethroned.backend.websocket.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Response beim WebSocket-Verbindungsaufbau
+ * Response during WebSocket connection establishment
  */
 public class ConnectionResponse {
     @JsonProperty("status")

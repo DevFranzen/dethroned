@@ -1,7 +1,7 @@
 package com.toni.dethroned.backend.websocket.exception;
 
 /**
- * Basis-Exception für WebSocket-Fehler
+ * Base exception for WebSocket errors
  */
 public class WebSocketException extends RuntimeException {
     public WebSocketException(String message) {

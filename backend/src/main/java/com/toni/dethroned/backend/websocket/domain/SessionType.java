@@ -1,22 +1,22 @@
 package com.toni.dethroned.backend.websocket.domain;
 
 /**
- * Enum für verschiedene Typen von WebSocket-Sessions.
- * Wird verwendet um den Kontext einer Verbindung zu identifizieren.
+ * Enum for different types of WebSocket sessions.
+ * Used to identify the context of a connection.
  */
 public enum SessionType {
     /**
-     * Session für eine Lobby
+     * Session for a lobby
      */
     LOBBY,
 
     /**
-     * Session für ein Spiel
+     * Session for a game
      */
     GAME,
 
     /**
-     * Session für Spectators
+     * Session for spectators
      */
     SPECTATOR
 }

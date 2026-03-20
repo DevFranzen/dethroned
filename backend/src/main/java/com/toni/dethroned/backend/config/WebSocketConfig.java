@@ -7,8 +7,8 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
 /**
- * WebSocket Configuration für die Anwendung.
- * Registriert den WebSocket Handler und konfiguriert die Endpoints.
+ * WebSocket configuration for the application.
+ * Registers the WebSocket handler and configures the endpoints.
  */
 @Configuration
 @EnableWebSocket

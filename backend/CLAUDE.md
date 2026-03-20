@@ -70,6 +70,19 @@ backend/
 
 The project is in early-stage development with only a basic application shell in place. No domain models, services, controllers, or database integration are currently implemented.
 
+## Code Style & Language Guidelines
+
+**All code in this project must be written in English:**
+- Class names: English (e.g., `PlayerConnection`, `ConnectionGroup`, `WebSocketHandler`)
+- Method names: English (e.g., `broadcastAll()`, `verifyGroupAccess()`, `addConnection()`)
+- Variable names: English (e.g., `playerConnections`, `sessionId`, `connectionGroup`)
+- Comments: English (e.g., `// Broadcast message to all players in the group`)
+- JavaDoc: English
+- Commit messages: English
+- Documentation: English
+
+This applies to ALL new code, comments, documentation, and variable names - maintain consistency with the existing codebase which uses English throughout.
+
 ## Development Notes
 
 - Java 17 is currently installed locally but the project targets Java 21. This may need to be addressed if building fails with Java version errors.

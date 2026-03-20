@@ -10,12 +10,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Zentrale Klasse für die Verwaltung aller WebSocket-Verbindungen einer Gruppe.
- * Eine ConnectionGroup repräsentiert eine logische Gruppe (z.B. eine Lobby, ein Game),
- * die mehrere Players über WebSocket verbunden hat.
+ * Central class for managing all WebSocket connections of a group.
+ * A ConnectionGroup represents a logical group (e.g. a Lobby, a Game)
+ * that has multiple players connected over WebSocket.
  *
- * Diese Klasse bietet generische Broadcasting- und Messaging-Funktionalität,
- * die von verschiedenen Services (Game, Lobby, etc.) genutzt werden kann.
+ * This class provides generic broadcasting and messaging functionality
+ * that can be used by various services (Game, Lobby, etc.).
  */
 public class ConnectionGroup {
     private final String groupId;
@@ -27,12 +27,12 @@ public class ConnectionGroup {
     }
 
     /**
-     * Verbindung eines Players hinzufügen oder reconnecten.
-     * Falls der Player bereits verbunden war, wird die alte Verbindung ersetzt (Reconnect).
+     * Add a player's connection or reconnect.
+     * If the player was already connected, the old connection is replaced (Reconnect).
      *
      * @param playerId Player ID
      * @param webSocketSession WebSocket Session
-     * @return PlayerConnection Objekt
+     * @return PlayerConnection object
      */
     public PlayerConnection addConnection(String playerId, WebSocketSession webSocketSession) {
         LocalDateTime now = LocalDateTime.now();
@@ -42,8 +42,8 @@ public class ConnectionGroup {
     }
 
     /**
-     * Verbindung eines Players entfernen.
-     * Der Player selbst bleibt in der Gruppe (z.B. Lobby), nur die WebSocket-Verbindung wird entfernt.
+     * Remove a player's connection.
+     * The player itself remains in the group (e.g. Lobby), only the WebSocket connection is removed.
      *
      * @param playerId Player ID
      */
@@ -52,10 +52,10 @@ public class ConnectionGroup {
     }
 
     /**
-     * Prüft ob ein Player verbunden ist.
+     * Checks if a player is connected.
      *
      * @param playerId Player ID
-     * @return true wenn Player verbunden ist, false sonst
+     * @return true if player is connected, false otherwise
      */
     public boolean isPlayerConnected(String playerId) {
         PlayerConnection connection = playerConnections.get(playerId);
@@ -63,47 +63,47 @@ public class ConnectionGroup {
     }
 
     /**
-     * Gibt die Verbindung eines Players zurück.
+     * Returns a player's connection.
      *
      * @param playerId Player ID
-     * @return PlayerConnection oder null wenn nicht verbunden
+     * @return PlayerConnection or null if not connected
      */
     public PlayerConnection getPlayerConnection(String playerId) {
         return playerConnections.get(playerId);
     }
 
     /**
-     * Gibt alle aktiven Verbindungen zurück.
+     * Returns all active connections.
      *
-     * @return Collection aller PlayerConnections
+     * @return Collection of all PlayerConnections
      */
     public Collection<PlayerConnection> getActiveConnections() {
         return playerConnections.values();
     }
 
     /**
-     * Gibt die Anzahl aktiver Verbindungen zurück.
+     * Returns the number of active connections.
      *
-     * @return Anzahl verbundener Players
+     * @return Number of connected players
      */
     public int getConnectionCount() {
         return playerConnections.size();
     }
 
     /**
-     * Sendet eine Message an alle verbundenen Players in dieser Gruppe.
+     * Sends a message to all connected players in this group.
      *
-     * @param message Message als JSON String
+     * @param message Message as JSON string
      */
     public void broadcastAll(String message) {
         broadcastAll(message, null);
     }
 
     /**
-     * Sendet eine Message an alle verbundenen Players außer einem.
+     * Sends a message to all connected players except one.
      *
-     * @param message Message als JSON String
-     * @param excludePlayerId Player ID die excludiert wird (null wenn niemand excludiert)
+     * @param message Message as JSON string
+     * @param excludePlayerId Player ID to be excluded (null if no one is excluded)
      */
     public void broadcastAll(String message, String excludePlayerId) {
         for (PlayerConnection connection : playerConnections.values()) {
@@ -116,17 +116,17 @@ public class ConnectionGroup {
                     connection.getWebSocketSession().sendMessage(new TextMessage(message));
                     connection.updateActivity();
                 } catch (IOException e) {
-                    // Verbindung ist broken, wird bei nächstem Disconnect cleanup entfernt
+                    // Connection is broken, will be cleaned up at next disconnect
                 }
             }
         }
     }
 
     /**
-     * Sendet eine Message an einen spezifischen Player.
+     * Sends a message to a specific player.
      *
      * @param playerId Player ID
-     * @param message Message als JSON String
+     * @param message Message as JSON string
      */
     public void sendTo(String playerId, String message) {
         PlayerConnection connection = playerConnections.get(playerId);
@@ -138,21 +138,21 @@ public class ConnectionGroup {
             connection.getWebSocketSession().sendMessage(new TextMessage(message));
             connection.updateActivity();
         } catch (IOException e) {
-            // Verbindung ist broken, wird bei nächstem Disconnect cleanup entfernt
+            // Connection is broken, will be cleaned up at next disconnect
         }
     }
 
     /**
-     * Prüft ob die Gruppe leer ist (keine Verbindungen).
+     * Checks if the group is empty (no connections).
      *
-     * @return true wenn keine Players verbunden sind
+     * @return true if no players are connected
      */
     public boolean isEmpty() {
         return playerConnections.isEmpty();
     }
 
     /**
-     * Gibt die Group ID zurück.
+     * Returns the group ID.
      *
      * @return Group ID
      */

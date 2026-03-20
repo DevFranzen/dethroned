@@ -30,7 +30,7 @@ public class LobbyService {
 
         Lobby lobby = new Lobby(lobbyId, code, playerId, settings);
 
-        // Creator wird automatisch Admin und Member der Lobby
+        // Creator is automatically admin and member of the lobby
         Player creatorPlayer = new Player(playerId, "Admin", PlayerRole.PLAYER);
         lobby.addPlayer(creatorPlayer);
 
@@ -109,13 +109,13 @@ public class LobbyService {
 
         lobby.removePlayer(playerId);
 
-        // Wenn letzter Player: Lobby löschen
+        // If last player: Delete lobby
         if (lobby.isEmpty()) {
             deleteLobbyInternal(lobbyId);
             return;
         }
 
-        // Wenn Admin verlässt: Admin-Rechte an ältesten Player
+        // If admin leaves: Transfer admin rights to oldest player
         if (wasAdmin) {
             lobby.transferAdminToOldestPlayer();
         }

@@ -1,7 +1,7 @@
 package com.toni.dethroned.backend.websocket.exception;
 
 /**
- * Exception wenn die Player ID ungültig ist
+ * Exception when the player ID is invalid
  */
 public class PlayerNotAuthenticatedException extends WebSocketException {
     public PlayerNotAuthenticatedException(String playerId) {

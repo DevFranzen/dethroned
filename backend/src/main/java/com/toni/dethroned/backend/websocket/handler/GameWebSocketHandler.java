@@ -13,12 +13,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 
 /**
- * WebSocket Handler für Game-Verbindungen.
- * Managed den Lifecycle von WebSocket-Verbindungen:
- * - Verbindungsaufbau mit Verifikation
- * - Message-Handling
- * - Disconnect-Cleanup
- * - Reconnect-Logik
+ * WebSocket Handler for game connections.
+ * Manages the lifecycle of WebSocket connections:
+ * - Connection establishment with verification
+ * - Message handling
+ * - Disconnect cleanup
+ * - Reconnect logic
  */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -37,17 +37,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Wird aufgerufen wenn ein Client eine WebSocket-Verbindung aufbaut.
-     * - Extrahiert playerId und sessionId aus URL-Parametern
-     * - Verifikation des Players
-     * - Verbindung zur ConnectionGroup hinzufügen
+     * Called when a client establishes a WebSocket connection.
+     * - Extracts playerId and sessionId from URL parameters
+     * - Verifies the player
+     * - Adds connection to the ConnectionGroup
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String playerId = null;
         String sessionId = null;
 
-        // Parse aus URI Path
+        // Parse from URI Path
         // Format: ws://host/ws/player/{playerId}/session/{sessionId}
         String uri = session.getUri().toString();
         String[] parts = uri.split("/");
@@ -56,21 +56,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             sessionId = parts[parts.length - 1];
         }
 
-        // Validierung
+        // Validation
         if (playerId == null || sessionId == null) {
             sendConnectionResponse(session, "{\"status\":\"AUTHENTICATION_FAILED\",\"message\":\"Missing playerId or sessionId\"}");
             session.close();
             return;
         }
 
-        // Verifikation: Prüfe ob Player in der Lobby ist
+        // Verification: Check if player is in the lobby
         if (!verificationService.verifyGroupAccess(playerId, sessionId)) {
             sendConnectionResponse(session, "{\"status\":\"UNAUTHORIZED\",\"message\":\"Player is not authorized to access this session\"}");
             session.close();
             return;
         }
 
-        // Hole die ConnectionGroup (für Lobby = die Lobby selbst)
+        // Get the ConnectionGroup (for lobby = the lobby itself)
         ConnectionGroup connectionGroup;
         try {
             var lobby = lobbyService.getLobbyById(sessionId);
@@ -81,10 +81,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // Füge Verbindung zur ConnectionGroup hinzu (oder Reconnect wenn schon vorhanden)
+        // Add connection to ConnectionGroup (or reconnect if already present)
         connectionGroup.addConnection(playerId, session);
 
-        // Sende Erfolgs-Response
+        // Send success response
         String successResponse = String.format(
             "{\"status\":\"CONNECTED\",\"message\":\"Connected successfully\",\"playerId\":\"%s\",\"sessionId\":\"%s\"}",
             playerId, sessionId
@@ -93,24 +93,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Wird aufgerufen wenn der Client eine Nachricht sendet.
-     * Aktuell nicht implementiert - kann später für Game-Commands erweitert werden.
+     * Called when the client sends a message.
+     * Currently not implemented - can be extended later for game commands.
      */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        // Messages vom Client könnten hier für Game-Commands verarbeitet werden
-        // Für diese Phase nicht notwendig
+        // Messages from client could be processed here for game commands
+        // Not necessary for this phase
     }
 
     /**
-     * Wird aufgerufen wenn die WebSocket-Verbindung geschlossen wird.
-     * - Findet die ConnectionGroup
-     * - Entfernt den Player aus der Gruppe
-     * - Falls Lobby leer: Kann später zur Auto-Löschung führen
+     * Called when the WebSocket connection is closed.
+     * - Finds the ConnectionGroup
+     * - Removes the player from the group
+     * - If lobby is empty: Can lead to auto-deletion later
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        // Extrahiere playerId und sessionId (gleich wie in afterConnectionEstablished)
+        // Extract playerId and sessionId (same as in afterConnectionEstablished)
         String uri = session.getUri().toString();
         String[] parts = uri.split("/");
         String playerId = null;
@@ -125,14 +125,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // Entferne Connection aus ConnectionGroup
+        // Remove connection from ConnectionGroup
         if (connectionManager.hasConnectionGroup(sessionId)) {
             try {
                 var lobby = lobbyService.getLobbyById(sessionId);
                 ConnectionGroup connectionGroup = lobby.getConnectionGroup();
                 connectionGroup.removeConnection(playerId);
 
-                // Broadcast Disconnect an verbleibende Players
+                // Broadcast disconnect to remaining players
                 String disconnectMessage = String.format(
                     "{\"type\":\"PLAYER_DISCONNECTED\",\"playerId\":\"%s\",\"timestamp\":%d}",
                     playerId,
@@ -140,27 +140,27 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 );
                 connectionGroup.broadcastAll(disconnectMessage, playerId);
             } catch (Exception e) {
-                // Lobby existiert nicht mehr oder andere Fehler
+                // Lobby no longer exists or other error
             }
         }
     }
 
     /**
-     * Wird aufgerufen wenn ein Transport-Fehler auftritt.
+     * Called when a transport error occurs.
      */
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-        // Fehler-Handling - Verbindung wird automatisch geschlossen
+        // Error handling - connection is closed automatically
     }
 
     /**
-     * Hilfsmethode zum Senden einer ConnectionResponse als JSON String
+     * Helper method to send a ConnectionResponse as JSON string
      */
     private void sendConnectionResponse(WebSocketSession session, String jsonResponse) {
         try {
             session.sendMessage(new TextMessage(jsonResponse));
         } catch (IOException e) {
-            // Fehler beim Senden - Verbindung wird geschlossen
+            // Error sending - connection will be closed
         }
     }
 }

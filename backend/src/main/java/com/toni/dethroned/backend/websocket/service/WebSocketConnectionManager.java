@@ -7,8 +7,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Service für zentrale Verwaltung von WebSocket ConnectionGroups.
- * Jede ConnectionGroup verwaltet alle WebSocket-Verbindungen einer Gruppe (z.B. Lobby).
+ * Service for central management of WebSocket ConnectionGroups.
+ * Each ConnectionGroup manages all WebSocket connections of a group (e.g. Lobby).
  */
 @Service
 public class WebSocketConnectionManager {
@@ -16,9 +16,9 @@ public class WebSocketConnectionManager {
     private final Map<String, ConnectionGroup> connectionGroups = new ConcurrentHashMap<>();
 
     /**
-     * Gibt eine ConnectionGroup zurück oder erstellt sie wenn sie nicht existiert.
+     * Returns a ConnectionGroup or creates it if it doesn't exist.
      *
-     * @param groupId Gruppen ID (z.B. Lobby ID)
+     * @param groupId Group ID (e.g. Lobby ID)
      * @return ConnectionGroup
      */
     public ConnectionGroup getConnectionGroup(String groupId) {
@@ -26,10 +26,10 @@ public class WebSocketConnectionManager {
     }
 
     /**
-     * Erstellt eine neue ConnectionGroup.
-     * Falls bereits eine existiert, wird diese zurückgegeben.
+     * Creates a new ConnectionGroup.
+     * If one already exists, it is returned.
      *
-     * @param groupId Gruppen ID
+     * @param groupId Group ID
      * @return ConnectionGroup
      */
     public ConnectionGroup createConnectionGroup(String groupId) {
@@ -37,30 +37,30 @@ public class WebSocketConnectionManager {
     }
 
     /**
-     * Entfernt eine ConnectionGroup.
+     * Removes a ConnectionGroup.
      *
-     * @param groupId Gruppen ID
+     * @param groupId Group ID
      */
     public void removeConnectionGroup(String groupId) {
         connectionGroups.remove(groupId);
     }
 
     /**
-     * Prüft ob eine ConnectionGroup existiert.
+     * Checks if a ConnectionGroup exists.
      *
-     * @param groupId Gruppen ID
-     * @return true wenn Gruppe existiert, false sonst
+     * @param groupId Group ID
+     * @return true if group exists, false otherwise
      */
     public boolean hasConnectionGroup(String groupId) {
         return connectionGroups.containsKey(groupId);
     }
 
     /**
-     * Prüft ob ein Player in einer Gruppe verbunden ist.
+     * Checks if a player is connected in a group.
      *
      * @param playerId Player ID
-     * @param groupId Gruppen ID
-     * @return true wenn Player verbunden ist, false sonst
+     * @param groupId Group ID
+     * @return true if player is connected, false otherwise
      */
     public boolean isPlayerConnected(String playerId, String groupId) {
         ConnectionGroup group = connectionGroups.get(groupId);
