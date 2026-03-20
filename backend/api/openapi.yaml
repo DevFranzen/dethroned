@@ -156,7 +156,7 @@ paths:
       tags:
         - Players
       summary: Add a player to lobby
-      description: Adds a new player to the lobby using their authenticated Player ID. Returns 409 if lobby is full.
+      description: Adds a new player to the lobby using their authenticated Player ID. Returns the complete lobby state after the player joins. Returns 409 if lobby is full.
       operationId: addPlayer
       parameters:
         - name: lobbyId
@@ -174,11 +174,11 @@ paths:
               $ref: '#/components/schemas/AddPlayerRequest'
       responses:
         '201':
-          description: Player added successfully
+          description: Player added successfully - returns complete lobby state
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayerResponse'
+                $ref: '#/components/schemas/LobbyResponse'
         '404':
           description: Lobby not found
           content:

@@ -1,11 +1,9 @@
 package com.toni.dethroned.backend.lobby.controller;
 
 import com.toni.dethroned.backend.lobby.domain.Lobby;
-import com.toni.dethroned.backend.lobby.domain.Player;
 import com.toni.dethroned.backend.lobby.dto.AddPlayerRequest;
 import com.toni.dethroned.backend.lobby.dto.CreateLobbyRequest;
 import com.toni.dethroned.backend.lobby.dto.LobbyResponse;
-import com.toni.dethroned.backend.lobby.dto.PlayerResponse;
 import com.toni.dethroned.backend.lobby.service.LobbyService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -59,11 +57,12 @@ public class LobbyController {
     }
 
     @PostMapping("/{lobbyId}/players")
-    public ResponseEntity<PlayerResponse> addPlayer(
+    public ResponseEntity<LobbyResponse> addPlayer(
             @PathVariable String lobbyId,
             @Valid @RequestBody AddPlayerRequest request) {
-        Player player = lobbyService.addPlayer(lobbyId, request.getPlayerId(), request.getUsername(), request.getRole());
-        return ResponseEntity.status(HttpStatus.CREATED).body(new PlayerResponse(player));
+        lobbyService.addPlayer(lobbyId, request.getPlayerId(), request.getUsername(), request.getRole());
+        Lobby lobby = lobbyService.getLobbyById(lobbyId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new LobbyResponse(lobby));
     }
 
     @PostMapping("/{lobbyId}/players/{playerId}/ready")
