@@ -240,6 +240,29 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    void testConnectionBroadcastsToOtherPlayers() throws Exception {
+        // Arrange - First player already connected
+        when(mockSession.getUri()).thenReturn(new URI("ws://localhost:8080/ws/player/player1/session/lobby-123"));
+        when(mockSession.isOpen()).thenReturn(true);
+        when(verificationService.verifyGroupAccess("player1", "lobby-123")).thenReturn(true);
+        when(lobbyService.getLobbyById("lobby-123")).thenReturn(testLobby);
+
+        when(mockSession2.getUri()).thenReturn(new URI("ws://localhost:8080/ws/player/player2/session/lobby-123"));
+        when(mockSession2.isOpen()).thenReturn(true);
+        when(verificationService.verifyGroupAccess("player2", "lobby-123")).thenReturn(true);
+
+        handler.afterConnectionEstablished(mockSession);
+
+        // Act - Second player connects
+        handler.afterConnectionEstablished(mockSession2);
+
+        // Assert - Verify player1 received broadcast about player2 connecting
+        // Player2 should receive CONNECTED response, others should receive PLAYER_CONNECTED broadcast
+        verify(mockSession, atLeastOnce()).sendMessage(any(TextMessage.class)); // PLAYER_CONNECTED broadcast
+        verify(mockSession2, atLeastOnce()).sendMessage(any(TextMessage.class)); // CONNECTED response
+    }
+
+    @Test
     void testSequentialConnectDisconnectReconnect() throws Exception {
         // Arrange
         when(mockSession.getUri()).thenReturn(new URI("ws://localhost:8080/ws/player/player1/session/lobby-123"));

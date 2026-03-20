@@ -1,0 +1,674 @@
+asyncapi: 3.0.0
+info:
+  title: Dethroned Game Backend WebSocket API
+  version: 1.0.0
+  description: |
+    Real-time WebSocket API for player connections, lobby management, and game communications.
+    Enables bidirectional, event-driven communication between game clients and the backend.
+  contact:
+    name: Dethroned Development Team
+  license:
+    name: MIT
+
+servers:
+  development:
+    host: localhost:8080
+    protocol: ws
+    description: Local development server
+    variables:
+      basePath:
+        default: /ws
+        description: Base path for WebSocket connections
+
+  production:
+    host: api.dethroned.example.com
+    protocol: wss
+    description: Production server (WSS for secure connections)
+    variables:
+      basePath:
+        default: /ws
+        description: Base path for WebSocket connections
+
+channels:
+  PlayerSession:
+    address: /player/{playerId}/session/{sessionId}
+    title: Player WebSocket Connection
+    description: |
+      Establishes a WebSocket connection for a player to a lobby or game session.
+
+      Supports:
+      - Initial connection with automatic verification
+      - Automatic reconnection with session replacement
+      - Real-time event broadcasting
+      - Per-player message targeting
+    parameters:
+      playerId:
+        $ref: '#/components/parameters/playerId'
+      sessionId:
+        $ref: '#/components/parameters/sessionId'
+
+    messages:
+      ConnectionRequest:
+        $ref: '#/components/messages/ConnectionRequest'
+      ConnectionResponse:
+        $ref: '#/components/messages/ConnectionResponse'
+      PlayerConnectedEvent:
+        $ref: '#/components/messages/PlayerConnectedEvent'
+      PlayerDisconnectedEvent:
+        $ref: '#/components/messages/PlayerDisconnectedEvent'
+      GameUpdateEvent:
+        $ref: '#/components/messages/GameUpdateEvent'
+      CustomMessage:
+        $ref: '#/components/messages/CustomMessage'
+
+    publish:
+      operationId: sendToServer
+      title: Send Message to Server
+      description: Client sends messages or commands to the server
+      message:
+        oneOf:
+          - $ref: '#/components/messages/CustomMessage'
+
+    subscribe:
+      operationId: receiveFromServer
+      title: Receive Messages from Server
+      description: |
+        Server sends connection responses, events, and game updates to connected clients.
+
+        Message Types:
+        - Connection establishment (ConnectionResponse)
+        - Player join/leave events (PlayerConnectedEvent, PlayerDisconnectedEvent)
+        - Game state updates (GameUpdateEvent)
+        - Custom application messages (CustomMessage)
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConnectionResponse'
+          - $ref: '#/components/messages/PlayerConnectedEvent'
+          - $ref: '#/components/messages/PlayerDisconnectedEvent'
+          - $ref: '#/components/messages/GameUpdateEvent'
+          - $ref: '#/components/messages/CustomMessage'
+
+components:
+  parameters:
+    playerId:
+      name: playerId
+      description: |
+        Unique player identifier obtained from POST /api/auth/login endpoint.
+        Must be a valid UUID format.
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440001
+
+    sessionId:
+      name: sessionId
+      description: |
+        Session identifier (Lobby ID or Game ID).
+        Must be a valid UUID format that corresponds to an existing and accessible session.
+      schema:
+        type: string
+        format: uuid
+        example: d9c65893-bf77-416c-a9c6-cddd43905215
+
+  messages:
+    ConnectionRequest:
+      title: Connection Request (Implicit)
+      description: |
+        Initiated automatically when client connects to the WebSocket endpoint.
+        No explicit message from client is required.
+
+        URL Format: ws://localhost:8080/ws/player/{playerId}/session/{sessionId}
+      payload:
+        $ref: '#/components/schemas/ConnectionRequestPayload'
+
+    ConnectionResponse:
+      title: Connection Response
+      description: |
+        Sent by server immediately after connection attempt.
+        Indicates success or failure of connection establishment with detailed status information.
+      payload:
+        $ref: '#/components/schemas/ConnectionResponsePayload'
+      examples:
+        - name: SuccessfulConnection
+          summary: Player successfully connected to session
+          payload:
+            status: CONNECTED
+            message: Connected successfully
+            playerId: 550e8400-e29b-41d4-a716-446655440001
+            sessionId: d9c65893-bf77-416c-a9c6-cddd43905215
+            timestamp: 1711035690588
+
+        - name: AuthenticationFailed
+          summary: Invalid or missing playerId
+          payload:
+            status: AUTHENTICATION_FAILED
+            message: Missing playerId or sessionId
+            playerId: null
+            sessionId: null
+            timestamp: 1711035690588
+
+        - name: SessionInvalid
+          summary: Session not found or not accessible
+          payload:
+            status: SESSION_INVALID
+            message: Session not found
+            playerId: null
+            sessionId: null
+            timestamp: 1711035690588
+
+        - name: Unauthorized
+          summary: Player not authorized to access this session
+          payload:
+            status: UNAUTHORIZED
+            message: Player is not authorized to access this session
+            playerId: null
+            sessionId: null
+            timestamp: 1711035690588
+
+    PlayerConnectedEvent:
+      title: Player Connected Event
+      description: |
+        Broadcast to all connected players in a session when a new player connects.
+        NOT sent to the connecting player (they receive ConnectionResponse instead).
+
+        Broadcast Rule: All players except the connecting player
+      payload:
+        $ref: '#/components/schemas/PlayerConnectedEventPayload'
+      examples:
+        - name: PlayerJoinedLobby
+          summary: New player connected to lobby session
+          payload:
+            type: PLAYER_CONNECTED
+            playerId: 550e8400-e29b-41d4-a716-446655440001
+            timestamp: 1711035690588
+
+    PlayerDisconnectedEvent:
+      title: Player Disconnected Event
+      description: |
+        Broadcast to all remaining connected players when a player disconnects.
+        NOT sent to the disconnecting player.
+
+        Disconnect Causes:
+        - Network loss
+        - Client closes connection
+        - Server timeout
+        - Browser/app close
+
+        Broadcast Rule: All remaining players except the disconnected player
+      payload:
+        $ref: '#/components/schemas/PlayerDisconnectedEventPayload'
+      examples:
+        - name: PlayerLeftLobby
+          summary: Player disconnected from lobby session
+          payload:
+            type: PLAYER_DISCONNECTED
+            playerId: 550e8400-e29b-41d4-a716-446655440001
+            timestamp: 1711035690588
+
+    GameUpdateEvent:
+      title: Game Update Event
+      description: |
+        Server broadcasts game state updates to all connected players in an active game session.
+        Contains game-specific information like player positions, game state, score, etc.
+
+        Broadcast Rule: All players in the game session
+      payload:
+        $ref: '#/components/schemas/GameUpdateEventPayload'
+      examples:
+        - name: GameStateUpdate
+          summary: Game state and player positions update
+          payload:
+            type: GAME_UPDATE
+            timestamp: 1711035690588
+            playerId: game-server
+            sessionId: d9c65893-bf77-416c-a9c6-cddd43905215
+            payload:
+              playerPositions:
+                player1:
+                  x: 100
+                  y: 200
+                player2:
+                  x: 300
+                  y: 150
+              gameTime: 45000
+              status: PLAYING
+              score:
+                player1: 1200
+                player2: 950
+
+    CustomMessage:
+      title: Custom Application Message
+      description: |
+        Generic message format for application-specific communication.
+        Can be sent from client to server or broadcast by server to clients.
+
+        Use Cases:
+        - Player actions (movements, attacks, etc.)
+        - Custom events
+        - Notifications
+        - Real-time data updates
+      payload:
+        $ref: '#/components/schemas/CustomMessagePayload'
+      examples:
+        - name: PlayerAction
+          summary: Player sends action command
+          payload:
+            type: PLAYER_ACTION
+            timestamp: 1711035690588
+            playerId: 550e8400-e29b-41d4-a716-446655440001
+            sessionId: d9c65893-bf77-416c-a9c6-cddd43905215
+            payload:
+              action: MOVE
+              direction: UP
+              speed: 1.5
+
+        - name: CustomNotification
+          summary: Server sends custom notification to player
+          payload:
+            type: CUSTOM_NOTIFICATION
+            timestamp: 1711035690588
+            payload:
+              title: Achievement Unlocked
+              message: First Blood!
+              points: 500
+
+  schemas:
+    ConnectionRequestPayload:
+      title: Connection Request Payload
+      type: object
+      description: |
+        Implicit payload when client establishes WebSocket connection.
+        Extracted from URL parameters: /ws/player/{playerId}/session/{sessionId}
+      properties:
+        playerId:
+          type: string
+          format: uuid
+          description: Player ID from URL path parameter
+        sessionId:
+          type: string
+          format: uuid
+          description: Session ID from URL path parameter
+      required:
+        - playerId
+        - sessionId
+
+    ConnectionResponsePayload:
+      title: Connection Response Payload
+      type: object
+      description: Server response to connection attempt
+      properties:
+        status:
+          type: string
+          enum:
+            - CONNECTED
+            - AUTHENTICATION_FAILED
+            - SESSION_INVALID
+            - UNAUTHORIZED
+          description: |
+            - CONNECTED: Successfully authenticated and connected
+            - AUTHENTICATION_FAILED: Missing or invalid playerId/sessionId
+            - SESSION_INVALID: Session not found or not accessible
+            - UNAUTHORIZED: Player not authorized to access this session
+        message:
+          type: string
+          description: Human-readable status message or error description
+          example: Connected successfully
+        playerId:
+          type: string
+          format: uuid
+          description: Player ID (null if connection failed)
+          nullable: true
+        sessionId:
+          type: string
+          format: uuid
+          description: Session ID (null if connection failed)
+          nullable: true
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp when response was generated (milliseconds since epoch)
+      required:
+        - status
+        - message
+        - timestamp
+
+    PlayerConnectedEventPayload:
+      title: Player Connected Event Payload
+      type: object
+      description: |
+        Event broadcast when a player successfully connects to a session.
+        Sent to all connected players EXCEPT the connecting player.
+      properties:
+        type:
+          type: string
+          enum:
+            - PLAYER_CONNECTED
+          description: Event type identifier
+        playerId:
+          type: string
+          format: uuid
+          description: ID of the player who just connected
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp when event occurred (milliseconds since epoch)
+      required:
+        - type
+        - playerId
+        - timestamp
+
+    PlayerDisconnectedEventPayload:
+      title: Player Disconnected Event Payload
+      type: object
+      description: |
+        Event broadcast when a player disconnects from a session.
+        Sent to all remaining connected players EXCEPT the disconnected player.
+      properties:
+        type:
+          type: string
+          enum:
+            - PLAYER_DISCONNECTED
+          description: Event type identifier
+        playerId:
+          type: string
+          format: uuid
+          description: ID of the player who disconnected
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp when disconnection occurred (milliseconds since epoch)
+      required:
+        - type
+        - playerId
+        - timestamp
+
+    GameUpdateEventPayload:
+      title: Game Update Event Payload
+      type: object
+      description: |
+        Generic game state update sent to all players in active game.
+        Payload structure is application-specific and can vary based on game needs.
+      properties:
+        type:
+          type: string
+          enum:
+            - GAME_UPDATE
+          description: Event type identifier
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp when update occurred (milliseconds since epoch)
+        playerId:
+          type: string
+          description: Sender identifier (typically "game-server" for automatic updates)
+        sessionId:
+          type: string
+          format: uuid
+          description: Session ID receiving this update
+        payload:
+          type: object
+          description: Application-specific game update data
+          additionalProperties: true
+          example:
+            playerPositions:
+              player1: { x: 100, y: 200 }
+              player2: { x: 300, y: 150 }
+            gameTime: 45000
+            status: PLAYING
+            score:
+              player1: 1200
+              player2: 950
+      required:
+        - type
+        - timestamp
+        - payload
+
+    CustomMessagePayload:
+      title: Custom Message Payload
+      type: object
+      description: |
+        Generic message format for application-specific communication.
+        Can be bidirectional (client → server or server → client).
+
+        Use Cases:
+        - Player actions/commands
+        - Custom notifications
+        - Real-time data synchronization
+        - Chat/communications
+      properties:
+        type:
+          type: string
+          description: |
+            Message type identifier.
+            Examples: PLAYER_ACTION, NOTIFICATION, CHAT, CUSTOM_EVENT
+            Application-specific and can be any string
+          example: PLAYER_ACTION
+        timestamp:
+          type: integer
+          format: int64
+          description: Message creation timestamp (milliseconds since epoch)
+        playerId:
+          type: string
+          format: uuid
+          description: ID of sender/receiver player
+          nullable: true
+        sessionId:
+          type: string
+          format: uuid
+          description: Session this message relates to
+          nullable: true
+        payload:
+          type: object
+          description: Application-specific message data
+          additionalProperties: true
+          example:
+            action: MOVE
+            direction: UP
+            speed: 1.5
+      required:
+        - type
+        - timestamp
+
+tags:
+  - name: Connection Management
+    description: |
+      Connection establishment, verification, and lifecycle management.
+      Handles initial connections, reconnections, and disconnections.
+
+  - name: Session Events
+    description: |
+      Player join/leave events and session state changes.
+      Real-time notifications about session membership changes.
+
+  - name: Game Events
+    description: |
+      Game-specific events and state updates.
+      Player actions, game state, scoring, etc.
+
+  - name: Custom Messages
+    description: |
+      Application-defined messages for custom communication.
+      Flexible format for any use case not covered by built-in events.
+
+x-documentation:
+  overview: |
+    ## WebSocket Communication Overview
+
+    The WebSocket API provides real-time, bidirectional communication between game clients and the backend.
+    It enables instant player notifications, game state synchronization, and responsive gameplay.
+
+    ### Key Features
+    - **Real-time Communication**: Instant message delivery between client and server
+    - **Automatic Verification**: Player authorization verified on connection
+    - **Automatic Reconnection**: Session replacement on reconnect without duplicates
+    - **Group Broadcasting**: Efficiently broadcast messages to multiple players
+    - **Event-Driven**: Message-based architecture for scalable applications
+
+    ### Connection Lifecycle
+    1. Client initiates WebSocket connection with playerId and sessionId
+    2. Server verifies player authorization
+    3. Server sends ConnectionResponse (success or error)
+    4. If successful, player receives real-time events from other players
+    5. On disconnect, other players notified via PLAYER_DISCONNECTED event
+    6. Client can reconnect using same playerId/sessionId (transparent reconnect)
+
+    ### Message Flow Diagram
+    ```
+    Client1                    Server                    Client2
+       │                         │                         │
+       ├─── Connection ─────────>│                         │
+       │                         ├─── Verify ─────────────>│
+       │                         │                         │
+       │<─ CONNECTED Response ────┤                         │
+       │                         │                         │
+       │                         │<─── Connected ──────────┤
+       │                         │                         │
+       │<─ PLAYER_CONNECTED ─────────────────────────────>│
+       │                         │                         │
+       │─── Custom Message ─────>│                         │
+       │                         ├─── Custom Message ────>│
+       │<─────────────────────────────────────────────────│
+       │                         │                         │
+    ```
+
+  authentication: |
+    ## Authentication & Authorization
+
+    WebSocket connections require valid authentication:
+
+    1. **Player Verification**
+       - playerId must be obtained from POST /api/auth/login
+       - playerId is validated on connection attempt
+
+    2. **Session Authorization**
+       - Player must be member of the session (Lobby or Game)
+       - Player must join session via REST API first
+       - SessionVerificationService checks authorization
+
+    3. **Failed Connections**
+       - Invalid playerId → AUTHENTICATION_FAILED
+       - Invalid sessionId → SESSION_INVALID
+       - Player not in session → UNAUTHORIZED
+
+  broadcastRules: |
+    ## Broadcasting Rules
+
+    ### PLAYER_CONNECTED
+    - Sent to: All players in session EXCEPT connecting player
+    - When: Immediately after successful connection
+    - Purpose: Notify others that new player joined
+
+    ### PLAYER_DISCONNECTED
+    - Sent to: All remaining players EXCEPT disconnecting player
+    - When: When WebSocket connection closes
+    - Purpose: Notify others that player left
+
+    ### Game Updates
+    - Sent to: All players in game session
+    - When: Game state changes
+    - Purpose: Keep all players synchronized
+
+    ### Custom Messages
+    - Sent to: Specified recipients (all or specific player)
+    - When: Application triggers send
+    - Purpose: Application-specific communication
+
+  bestPractices: |
+    ## Best Practices
+
+    ### Client-Side
+    1. Use exponential backoff for reconnection attempts
+    2. Validate incoming messages before processing
+    3. Handle connection errors gracefully
+    4. Implement heartbeat/keepalive if needed
+    5. Parse message timestamps for ordering
+
+    ### Server-Side
+    1. Always verify player authorization
+    2. Use broadcastAll() for group messages
+    3. Exclude sender from broadcasts when appropriate
+    4. Handle closed sessions gracefully
+    5. Log connection events for debugging
+    6. Monitor connection health and resource usage
+
+    ### Message Design
+    1. Include type field for message routing
+    2. Include timestamp for ordering and debugging
+    3. Use meaningful event names (PLAYER_CONNECTED, not "evt1")
+    4. Keep payload focused and minimal
+    5. Document all custom message types
+
+  errorHandling: |
+    ## Error Handling
+
+    ### Connection Errors
+    - Invalid URI format → Validate before connecting
+    - Player not found → Re-authenticate via REST API
+    - Session not found → Verify session ID is correct
+    - Not authorized → Join session via REST API first
+
+    ### Runtime Errors
+    - Connection dropped → Automatic reconnect with backoff
+    - Send failure → Skipped sessions reconnect when available
+    - Parse error → Validate message format, log error
+
+    ### Recovery
+    - Always implement reconnection logic
+    - Use exponential backoff to prevent server overload
+    - Validate all incoming messages
+    - Handle edge cases (reordered, duplicate messages)
+
+  examples: |
+    ## Usage Examples
+
+    ### Example 1: Connect to Lobby
+    ```javascript
+    const ws = new WebSocket(
+      'ws://localhost:8080/ws/player/550e8400.../session/d9c65893...'
+    );
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+
+      if (msg.type === 'CONNECTED') {
+        console.log('Successfully connected to lobby');
+      } else if (msg.type === 'PLAYER_CONNECTED') {
+        console.log(`Player ${msg.playerId} joined`);
+      }
+    };
+    ```
+
+    ### Example 2: Handle Reconnection
+    ```javascript
+    const maxRetries = 5;
+    const baseDelay = 1000;
+
+    async function reconnect(playerId, sessionId, attempt = 0) {
+      try {
+        const ws = new WebSocket(
+          `ws://localhost:8080/ws/player/${playerId}/session/${sessionId}`
+        );
+        attempt = 0; // Reset on success
+      } catch (error) {
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, delay));
+          reconnect(playerId, sessionId, attempt + 1);
+        }
+      }
+    }
+    ```
+
+    ### Example 3: Send Custom Message
+    ```javascript
+    const action = {
+      type: 'PLAYER_ACTION',
+      timestamp: Date.now(),
+      playerId: 'player123',
+      payload: {
+        action: 'MOVE',
+        direction: 'UP'
+      }
+    };
+    ws.send(JSON.stringify(action));
+    ```

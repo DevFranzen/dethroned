@@ -90,6 +90,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             playerId, sessionId
         );
         sendConnectionResponse(session, successResponse);
+
+        // Broadcast player connected event to all other players in the group
+        String connectedMessage = String.format(
+            "{\"type\":\"PLAYER_CONNECTED\",\"playerId\":\"%s\",\"timestamp\":%d}",
+            playerId,
+            System.currentTimeMillis()
+        );
+        connectionGroup.broadcastAll(connectedMessage, playerId);
     }
 
     /**
