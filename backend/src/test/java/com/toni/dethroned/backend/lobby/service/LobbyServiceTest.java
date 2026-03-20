@@ -105,9 +105,11 @@ class LobbyServiceTest {
     @Test
     void testAddPlayer() {
         Lobby lobby = lobbyService.createLobby("host1", gameSettings);
-        Player player = lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
+        String playerId = "player-123";
+        Player player = lobbyService.addPlayer(lobby.getId(), playerId, "player1", PlayerRole.PLAYER);
 
         assertNotNull(player);
+        assertEquals(playerId, player.getId());
         assertEquals("player1", player.getUsername());
         assertEquals(PlayerRole.PLAYER, player.getRole());
         assertEquals(PlayerStatus.CONNECTED, player.getStatus());
@@ -118,17 +120,18 @@ class LobbyServiceTest {
         GameSettings smallSettings = new GameSettings(2, 2, "elimination", 0, 800, 600);
         Lobby lobby = lobbyService.createLobby("admin1", smallSettings);
         // Admin + 1 Player = 2 (full)
-        lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
+        lobbyService.addPlayer(lobby.getId(), "player-456", "player1", PlayerRole.PLAYER);
 
         assertThrows(LobbyFullException.class, () -> {
-            lobbyService.addPlayer(lobby.getId(), "player2", PlayerRole.PLAYER);
+            lobbyService.addPlayer(lobby.getId(), "player-789", "player2", PlayerRole.PLAYER);
         });
     }
 
     @Test
     void testPlayerLeaves() {
         Lobby lobby = lobbyService.createLobby("admin1", gameSettings);
-        Player player = lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
+        String playerId = "player-123";
+        Player player = lobbyService.addPlayer(lobby.getId(), playerId, "player1", PlayerRole.PLAYER);
 
         lobbyService.playerLeaves(lobby.getId(), player.getId());
 
@@ -147,7 +150,8 @@ class LobbyServiceTest {
     @Test
     void testMarkPlayerReady() {
         Lobby lobby = lobbyService.createLobby("host1", gameSettings);
-        Player player = lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
+        String playerId = "player-123";
+        Player player = lobbyService.addPlayer(lobby.getId(), playerId, "player1", PlayerRole.PLAYER);
 
         lobbyService.markPlayerReady(lobby.getId(), player.getId());
 
@@ -158,8 +162,10 @@ class LobbyServiceTest {
     void testLobbyTransitionsToReadyWhenAllPlayersReady() {
         Lobby lobby = lobbyService.createLobby("admin1", gameSettings);
         String adminId = "admin1";
-        Player player1 = lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
-        Player player2 = lobbyService.addPlayer(lobby.getId(), "player2", PlayerRole.PLAYER);
+        String playerId1 = "player-456";
+        String playerId2 = "player-789";
+        Player player1 = lobbyService.addPlayer(lobby.getId(), playerId1, "player1", PlayerRole.PLAYER);
+        Player player2 = lobbyService.addPlayer(lobby.getId(), playerId2, "player2", PlayerRole.PLAYER);
 
         // Admin ready
         lobbyService.markPlayerReady(lobby.getId(), adminId);

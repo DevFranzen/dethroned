@@ -156,7 +156,7 @@ paths:
       tags:
         - Players
       summary: Add a player to lobby
-      description: Adds a new player to the lobby. Returns 409 if lobby is full.
+      description: Adds a new player to the lobby using their authenticated Player ID. Returns 409 if lobby is full.
       operationId: addPlayer
       parameters:
         - name: lobbyId
@@ -294,9 +294,15 @@ components:
     AddPlayerRequest:
       type: object
       required:
+        - playerId
         - username
         - role
       properties:
+        playerId:
+          type: string
+          format: uuid
+          description: The unique Player ID obtained from /api/auth/login endpoint
+          example: "550e8400-e29b-41d4-a716-446655440002"
         username:
           type: string
           description: The player's username

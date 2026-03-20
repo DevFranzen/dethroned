@@ -48,7 +48,8 @@ class LobbyServiceAuthTest {
     void testPlayerLeavesLobby() {
         String playerId = "player-123";
         Lobby lobby = lobbyService.createLobby(playerId, gameSettings);
-        Player player2 = lobbyService.addPlayer(lobby.getId(), "Player 2", PlayerRole.PLAYER);
+        String player2Id = "player-456";
+        Player player2 = lobbyService.addPlayer(lobby.getId(), player2Id, "Player 2", PlayerRole.PLAYER);
 
         lobbyService.playerLeaves(lobby.getId(), player2.getId());
 
@@ -75,12 +76,13 @@ class LobbyServiceAuthTest {
         Lobby lobby = lobbyService.createLobby(admin, gameSettings);
         String lobbyId = lobby.getId();
 
-        Player player2 = lobbyService.addPlayer(lobbyId, "Player 2", PlayerRole.PLAYER);
-        String player2Id = player2.getId();
+        String player2Id = "player-456";
+        lobbyService.addPlayer(lobbyId, player2Id, "Player 2", PlayerRole.PLAYER);
 
         Thread.sleep(10); // Ensure different timestamps
 
-        Player player3 = lobbyService.addPlayer(lobbyId, "Player 3", PlayerRole.PLAYER);
+        String player3Id = "player-789";
+        lobbyService.addPlayer(lobbyId, player3Id, "Player 3", PlayerRole.PLAYER);
 
         // Admin leaves
         lobbyService.playerLeaves(lobbyId, admin);
@@ -98,14 +100,16 @@ class LobbyServiceAuthTest {
 
         // Add players with delays to ensure different join times
         Thread.sleep(5);
-        Player player2 = lobbyService.addPlayer(lobbyId, "Player 2", PlayerRole.PLAYER);
-        String player2Id = player2.getId();
+        String player2Id = "player-456";
+        lobbyService.addPlayer(lobbyId, player2Id, "Player 2", PlayerRole.PLAYER);
 
         Thread.sleep(5);
-        Player player3 = lobbyService.addPlayer(lobbyId, "Player 3", PlayerRole.PLAYER);
+        String player3Id = "player-789";
+        lobbyService.addPlayer(lobbyId, player3Id, "Player 3", PlayerRole.PLAYER);
 
         Thread.sleep(5);
-        Player player4 = lobbyService.addPlayer(lobbyId, "Player 4", PlayerRole.PLAYER);
+        String player4Id = "player-101";
+        lobbyService.addPlayer(lobbyId, player4Id, "Player 4", PlayerRole.PLAYER);
 
         // Admin leaves
         lobbyService.playerLeaves(lobbyId, admin);

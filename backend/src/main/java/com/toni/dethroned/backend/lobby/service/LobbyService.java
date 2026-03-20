@@ -85,14 +85,13 @@ public class LobbyService {
         }
     }
 
-    public Player addPlayer(String lobbyId, String username, PlayerRole role) {
+    public Player addPlayer(String lobbyId, String playerId, String username, PlayerRole role) {
         Lobby lobby = getLobbyById(lobbyId);
 
         if (lobby.isFull()) {
             throw new LobbyFullException("Lobby is full");
         }
 
-        String playerId = UUID.randomUUID().toString();
         Player player = new Player(playerId, username, role);
         lobby.addPlayer(player);
 

@@ -62,7 +62,7 @@ public class LobbyController {
     public ResponseEntity<PlayerResponse> addPlayer(
             @PathVariable String lobbyId,
             @Valid @RequestBody AddPlayerRequest request) {
-        Player player = lobbyService.addPlayer(lobbyId, request.getUsername(), request.getRole());
+        Player player = lobbyService.addPlayer(lobbyId, request.getPlayerId(), request.getUsername(), request.getRole());
         return ResponseEntity.status(HttpStatus.CREATED).body(new PlayerResponse(player));
     }
 

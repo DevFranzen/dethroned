@@ -5,6 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public class AddPlayerRequest {
+    @NotBlank(message = "Player ID is required")
+    private String playerId;
+
     @NotBlank(message = "Username is required")
     private String username;
 
@@ -14,9 +17,18 @@ public class AddPlayerRequest {
     public AddPlayerRequest() {
     }
 
-    public AddPlayerRequest(String username, PlayerRole role) {
+    public AddPlayerRequest(String playerId, String username, PlayerRole role) {
+        this.playerId = playerId;
         this.username = username;
         this.role = role;
+    }
+
+    public String getPlayerId() {
+        return playerId;
+    }
+
+    public void setPlayerId(String playerId) {
+        this.playerId = playerId;
     }
 
     public String getUsername() {

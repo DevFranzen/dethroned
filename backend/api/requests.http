@@ -8,7 +8,7 @@
 # AUTHENTICATION
 ###############################################################################
 
-### 0. Login / Get Player ID
+### 0. Player 1 Login / Get Player ID
 POST {{baseUrl}}/api/auth/login
 Content-Type: {{contentType}}
 
@@ -16,7 +16,29 @@ Content-Type: {{contentType}}
 
 > {%
   client.global.set("playerId", response.body.playerId);
-  client.log("Player ID: " + response.body.playerId);
+  client.log("Player 1 ID: " + response.body.playerId);
+%}
+
+### 0b. Player 2 Login / Get Player ID
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{}
+
+> {%
+  client.global.set("player2Id", response.body.playerId);
+  client.log("Player 2 ID: " + response.body.playerId);
+%}
+
+### 0c. Player 3 Login / Get Player ID
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{}
+
+> {%
+  client.global.set("player3Id", response.body.playerId);
+  client.log("Player 3 ID: " + response.body.playerId);
 %}
 
 ###############################################################################
@@ -59,65 +81,57 @@ DELETE {{baseUrl}}/api/lobbies/{{lobbyId}}
 X-Admin-Id: {{playerId}}
 
 ###############################################################################
-# PLAYERS - Add, Mark Ready, Remove
+# PLAYERS - Add, Mark Ready, Leave
 ###############################################################################
 
-### 5. Add Player 1 to lobby
+### 5. Add Player 2 to lobby
 POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players
 Content-Type: {{contentType}}
 
 {
+  "playerId": "{{player2Id}}",
   "username": "Alice",
   "role": "PLAYER"
 }
 
 > {%
-  client.global.set("player1Id", response.body.id);
-  client.log("Player 1 added with ID: " + response.body.id);
+  client.log("Player 2 added to lobby");
 %}
 
-### 6. Add Player 2 to lobby
+### 6. Add Player 3 (Spectator) to lobby
 POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players
 Content-Type: {{contentType}}
 
 {
-  "username": "Bob",
-  "role": "PLAYER"
-}
-
-> {%
-  client.global.set("player2Id", response.body.id);
-  client.log("Player 2 added with ID: " + response.body.id);
-%}
-
-### 7. Add Player 3 (Spectator)
-POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players
-Content-Type: {{contentType}}
-
-{
+  "playerId": "{{player3Id}}",
   "username": "Charlie",
   "role": "SPECTATOR"
 }
 
 > {%
-  client.global.set("player3Id", response.body.id);
-  client.log("Player 3 added with ID: " + response.body.id);
+  client.log("Player 3 added to lobby as Spectator");
 %}
 
-### 8. Mark Player 1 as ready
-POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{{player1Id}}/ready
+### 7. Mark Player 1 (Creator/Admin) as ready
+POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{{playerId}}/ready
 Content-Type: {{contentType}}
 
-### 9. Mark Player 2 as ready (should transition lobby to READY if minPlayers met)
+### 8. Mark Player 2 as ready (should transition lobby to READY if minPlayers met)
 POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{{player2Id}}/ready
 Content-Type: {{contentType}}
 
-### 10. Check lobby status (should be READY)
+### 9. Check lobby status (should be READY)
 GET {{baseUrl}}/api/lobbies/{{lobbyId}}
 Content-Type: {{contentType}}
 
-### 11. Player leaves lobby
-POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{{player1Id}}/leave
+### 10. Player 2 leaves lobby
+POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{{player2Id}}/leave
+Content-Type: {{contentType}}
+
+{}
+
+### 11. Player 1 (Admin) leaves lobby
+POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{{playerId}}/leave
 Content-Type: {{contentType}}
 
 {}
@@ -130,15 +144,16 @@ Content-Type: {{contentType}}
 GET {{baseUrl}}/api/lobbies/invalid-uuid-12345
 Content-Type: {{contentType}}
 
-### 13. Try to delete lobby with wrong host ID (403)
+### 13. Try to delete lobby with wrong admin ID (403)
 DELETE {{baseUrl}}/api/lobbies/{{lobbyId}}
-X-Host-Id: wrong-host-id
+X-Admin-Id: wrong-admin-id
 
 ### 14. Try to add player to non-existent lobby (404)
 POST {{baseUrl}}/api/lobbies/invalid-uuid-12345/players
 Content-Type: {{contentType}}
 
 {
+  "playerId": "some-player-id",
   "username": "TestPlayer",
   "role": "PLAYER"
 }
@@ -152,46 +167,43 @@ Content-Type: {{contentType}}
 ###############################################################################
 
 ### Example 1: Full Game Setup Flow
-### Step 1: Create lobby
-# POST {{baseUrl}}/api/lobbies
-# Content-Type: {{contentType}}
-#
-# {
-#   "hostId": "game-master-1",
-#   "gameSettings": {
-#     "minPlayers": 2,
-#     "maxPlayers": 8,
-#     "gameMode": "score-based",
-#     "timeLimit": 300000,
-#     "fieldWidth": 1024,
-#     "fieldHeight": 768
-#   }
-# }
-#
-# ### Step 2: Add players (use lobbyId from step 1)
-# # POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players
-# # ... add multiple players
-#
-# ### Step 3: Mark all players ready
-# # POST {{baseUrl}}/api/lobbies/{{lobbyId}}/players/{playerId}/ready
-# # ... for each player
-#
-# ### Step 4: Verify lobby is READY
-# # GET {{baseUrl}}/api/lobbies/{{lobbyId}}
+### Step 1: Get Player IDs
+# POST {{baseUrl}}/api/auth/login (repeat for each player)
+# Get: playerId1, playerId2, playerId3, ...
+
+### Step 2: Create lobby with first player
+# POST {{baseUrl}}/api/lobbies { playerId: playerId1, gameSettings }
+
+### Step 3: Add other players to lobby
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players { playerId: playerId2, username: "Alice", role: "PLAYER" }
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players { playerId: playerId3, username: "Bob", role: "PLAYER" }
+
+### Step 4: Mark all players ready
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players/{playerId1}/ready
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players/{playerId2}/ready
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players/{playerId3}/ready
+
+### Step 5: Verify lobby is READY
+# GET {{baseUrl}}/api/lobbies/{lobbyId}
+
+### Step 6: Players leave (admin transfer happens automatically)
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players/{playerId1}/leave
+# POST {{baseUrl}}/api/lobbies/{lobbyId}/players/{playerId2}/leave
+# (Last player leaves → lobby auto-deleted)
 
 ###############################################################################
 # HELPER VARIABLES (Set these after creating lobbies/players)
 ###############################################################################
 
+# After login, the response handler will set:
+# @playerId = <UUID from response>
+# @player2Id = <UUID from response>
+# @player3Id = <UUID from response>
+
 # After creating a lobby, the response handler will set:
 # @lobbyId = <UUID from response>
 # @lobbyCode = <6-char code from response>
 
-# After adding players, the response handler will set:
-# @player1Id = <UUID from response>
-# @player2Id = <UUID from response>
-# @player3Id = <UUID from response>
-
 # You can also manually set them:
+# @playerId = 550e8400-e29b-41d4-a716-446655440001
 # @lobbyId = 550e8400-e29b-41d4-a716-446655440000
-# @player1Id = 550e8400-e29b-41d4-a716-446655440001
