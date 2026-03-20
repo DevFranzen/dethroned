@@ -5,8 +5,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 
 public class CreateLobbyRequest {
-    @NotBlank(message = "Host ID is required")
-    private String hostId;
+    @NotBlank(message = "Player ID is required")
+    private String playerId;
 
     @Valid
     private GameSettings gameSettings;
@@ -14,17 +14,17 @@ public class CreateLobbyRequest {
     public CreateLobbyRequest() {
     }
 
-    public CreateLobbyRequest(String hostId, GameSettings gameSettings) {
-        this.hostId = hostId;
+    public CreateLobbyRequest(String playerId, GameSettings gameSettings) {
+        this.playerId = playerId;
         this.gameSettings = gameSettings;
     }
 
-    public String getHostId() {
-        return hostId;
+    public String getPlayerId() {
+        return playerId;
     }
 
-    public void setHostId(String hostId) {
-        this.hostId = hostId;
+    public void setPlayerId(String playerId) {
+        this.playerId = playerId;
     }
 
     public GameSettings getGameSettings() {

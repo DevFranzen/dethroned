@@ -11,7 +11,7 @@ import java.util.Map;
 public class LobbyResponse {
     private String id;
     private String code;
-    private String hostId;
+    private String adminId;
     private String displayClientId;
     private LobbyStatus status;
     private List<PlayerResponse> players;
@@ -22,7 +22,7 @@ public class LobbyResponse {
     public LobbyResponse(Lobby lobby) {
         this.id = lobby.getId();
         this.code = lobby.getCode();
-        this.hostId = lobby.getHostId();
+        this.adminId = lobby.getAdminId();
         this.displayClientId = lobby.getDisplayClientId();
         this.status = lobby.getStatus();
         this.players = lobby.getPlayers().values().stream()
@@ -42,8 +42,8 @@ public class LobbyResponse {
         return code;
     }
 
-    public String getHostId() {
-        return hostId;
+    public String getAdminId() {
+        return adminId;
     }
 
     public String getDisplayClientId() {

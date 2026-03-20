@@ -13,18 +13,42 @@ servers:
     description: Production server (placeholder)
 
 tags:
+  - name: Authentication
+    description: Operations related to player authentication
   - name: Lobbies
     description: Operations related to game lobbies
   - name: Players
     description: Operations related to players in lobbies
 
 paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate and get Player ID
+      description: Authenticates a player and returns a unique Player ID. No credentials required - each call generates a new Player ID.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example: {}
+      responses:
+        '200':
+          description: Authentication successful, Player ID returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
   /api/lobbies:
     post:
       tags:
         - Lobbies
       summary: Create a new lobby
-      description: Creates a new game lobby with specified settings. The host automatically becomes the owner.
+      description: Creates a new game lobby with specified settings. The creator automatically becomes the admin and a member of the lobby.
       operationId: createLobby
       requestBody:
         required: true
@@ -95,7 +119,7 @@ paths:
       tags:
         - Lobbies
       summary: Delete a lobby
-      description: Deletes a lobby. Only the host can perform this action.
+      description: Deletes a lobby. Only the admin can perform this action.
       operationId: deleteLobby
       parameters:
         - name: lobbyId
@@ -105,17 +129,17 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: X-Host-Id
+        - name: X-Admin-Id
           in: header
           required: true
-          description: The host ID to verify ownership
+          description: The admin ID to verify ownership
           schema:
             type: string
       responses:
         '204':
           description: Lobby deleted successfully
         '403':
-          description: Forbidden - only the host can delete the lobby
+          description: Forbidden - only the admin can delete the lobby
           content:
             application/json:
               schema:
@@ -200,13 +224,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/lobbies/{lobbyId}/players/{playerId}:
-    delete:
+  /api/lobbies/{lobbyId}/players/{playerId}/leave:
+    post:
       tags:
         - Players
-      summary: Remove player from lobby
-      description: Removes a player from the lobby. The lobby status is updated accordingly.
-      operationId: removePlayer
+      summary: Player leaves lobby
+      description: |
+        A player leaves the lobby.
+        - If the player is the last one in the lobby, the lobby is automatically deleted.
+        - If the player is the admin, admin rights are automatically transferred to the oldest remaining player (based on joinedAt timestamp).
+      operationId: playerLeaves
       parameters:
         - name: lobbyId
           in: path
@@ -222,9 +249,16 @@ paths:
           schema:
             type: string
             format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example: {}
       responses:
         '204':
-          description: Player removed successfully
+          description: Player left the lobby successfully
         '404':
           description: Lobby or player not found
           content:
@@ -234,16 +268,26 @@ paths:
 
 components:
   schemas:
+    AuthResponse:
+      type: object
+      properties:
+        playerId:
+          type: string
+          format: uuid
+          description: Unique player ID for authentication
+          example: "550e8400-e29b-41d4-a716-446655440001"
+
     CreateLobbyRequest:
       type: object
       required:
-        - hostId
+        - playerId
         - gameSettings
       properties:
-        hostId:
+        playerId:
           type: string
-          description: The unique identifier of the host/creator
-          example: "host-123"
+          format: uuid
+          description: The unique identifier of the player creating the lobby. Obtained from /api/auth/login
+          example: "550e8400-e29b-41d4-a716-446655440001"
         gameSettings:
           $ref: '#/components/schemas/GameSettings'
 
@@ -273,10 +317,11 @@ components:
           type: string
           description: 6-character alphanumeric code for easy sharing
           example: "ABC123"
-        hostId:
+        adminId:
           type: string
-          description: The player ID of the lobby host
-          example: "host-123"
+          format: uuid
+          description: The player ID of the lobby admin (who currently has admin rights)
+          example: "550e8400-e29b-41d4-a716-446655440001"
         displayClientId:
           type: string
           nullable: true
@@ -420,12 +465,10 @@ components:
       enum:
         - PLAYER
         - SPECTATOR
-        - HOST
       description: |
         The role of the player:
         - PLAYER: Active game participant
         - SPECTATOR: Observing but not playing
-        - HOST: Lobby creator/administrator
 
     PlayerStatus:
       type: string

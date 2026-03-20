@@ -6,7 +6,7 @@ import com.toni.dethroned.backend.lobby.domain.LobbyStatus;
 import com.toni.dethroned.backend.lobby.domain.Player;
 import com.toni.dethroned.backend.lobby.domain.PlayerRole;
 import com.toni.dethroned.backend.lobby.domain.PlayerStatus;
-import com.toni.dethroned.backend.lobby.exception.InvalidHostException;
+import com.toni.dethroned.backend.lobby.exception.InvalidAdminException;
 import com.toni.dethroned.backend.lobby.exception.LobbyFullException;
 import com.toni.dethroned.backend.lobby.exception.LobbyNotFoundException;
 import com.toni.dethroned.backend.lobby.exception.PlayerNotFoundException;
@@ -31,14 +31,14 @@ class LobbyServiceTest {
 
     @Test
     void testCreateLobby() {
-        Lobby lobby = lobbyService.createLobby("host1", gameSettings);
+        Lobby lobby = lobbyService.createLobby("player1", gameSettings);
 
         assertNotNull(lobby);
         assertNotNull(lobby.getId());
         assertNotNull(lobby.getCode());
-        assertEquals("host1", lobby.getHostId());
+        assertEquals("player1", lobby.getAdminId());
         assertEquals(LobbyStatus.OPEN, lobby.getStatus());
-        assertEquals(0, lobby.getPlayers().size());
+        assertEquals(1, lobby.getPlayers().size()); // Creator ist automatisch Member
     }
 
     @Test
@@ -94,11 +94,11 @@ class LobbyServiceTest {
     }
 
     @Test
-    void testDeleteLobbyNotHost() {
-        Lobby lobby = lobbyService.createLobby("host1", gameSettings);
+    void testDeleteLobbyNotAdmin() {
+        Lobby lobby = lobbyService.createLobby("admin1", gameSettings);
 
-        assertThrows(InvalidHostException.class, () -> {
-            lobbyService.deleteLobby(lobby.getId(), "nothost");
+        assertThrows(InvalidAdminException.class, () -> {
+            lobbyService.deleteLobby(lobby.getId(), "notadmin");
         });
     }
 
@@ -116,31 +116,31 @@ class LobbyServiceTest {
     @Test
     void testAddPlayerLobbyFull() {
         GameSettings smallSettings = new GameSettings(2, 2, "elimination", 0, 800, 600);
-        Lobby lobby = lobbyService.createLobby("host1", smallSettings);
+        Lobby lobby = lobbyService.createLobby("admin1", smallSettings);
+        // Admin + 1 Player = 2 (full)
         lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
-        lobbyService.addPlayer(lobby.getId(), "player2", PlayerRole.PLAYER);
 
         assertThrows(LobbyFullException.class, () -> {
-            lobbyService.addPlayer(lobby.getId(), "player3", PlayerRole.PLAYER);
+            lobbyService.addPlayer(lobby.getId(), "player2", PlayerRole.PLAYER);
         });
     }
 
     @Test
-    void testRemovePlayer() {
-        Lobby lobby = lobbyService.createLobby("host1", gameSettings);
+    void testPlayerLeaves() {
+        Lobby lobby = lobbyService.createLobby("admin1", gameSettings);
         Player player = lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
 
-        lobbyService.removePlayer(lobby.getId(), player.getId());
+        lobbyService.playerLeaves(lobby.getId(), player.getId());
 
-        assertEquals(0, lobby.getPlayers().size());
+        assertEquals(1, lobby.getPlayers().size()); // Admin bleibt
     }
 
     @Test
-    void testRemovePlayerNotFound() {
-        Lobby lobby = lobbyService.createLobby("host1", gameSettings);
+    void testPlayerLeavesNotFound() {
+        Lobby lobby = lobbyService.createLobby("admin1", gameSettings);
 
         assertThrows(PlayerNotFoundException.class, () -> {
-            lobbyService.removePlayer(lobby.getId(), "nonexistent");
+            lobbyService.playerLeaves(lobby.getId(), "nonexistent");
         });
     }
 
@@ -156,13 +156,20 @@ class LobbyServiceTest {
 
     @Test
     void testLobbyTransitionsToReadyWhenAllPlayersReady() {
-        Lobby lobby = lobbyService.createLobby("host1", gameSettings);
+        Lobby lobby = lobbyService.createLobby("admin1", gameSettings);
+        String adminId = "admin1";
         Player player1 = lobbyService.addPlayer(lobby.getId(), "player1", PlayerRole.PLAYER);
         Player player2 = lobbyService.addPlayer(lobby.getId(), "player2", PlayerRole.PLAYER);
 
+        // Admin ready
+        lobbyService.markPlayerReady(lobby.getId(), adminId);
+        assertEquals(LobbyStatus.OPEN, lobby.getStatus());
+
+        // Player 1 ready
         lobbyService.markPlayerReady(lobby.getId(), player1.getId());
         assertEquals(LobbyStatus.OPEN, lobby.getStatus());
 
+        // Player 2 ready - now all 3 players ready, lobby transitions to READY
         lobbyService.markPlayerReady(lobby.getId(), player2.getId());
         assertEquals(LobbyStatus.READY, lobby.getStatus());
     }

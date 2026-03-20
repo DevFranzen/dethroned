@@ -32,7 +32,7 @@ public class LobbyController {
 
     @PostMapping
     public ResponseEntity<LobbyResponse> createLobby(@Valid @RequestBody CreateLobbyRequest request) {
-        Lobby lobby = lobbyService.createLobby(request.getHostId(), request.getGameSettings());
+        Lobby lobby = lobbyService.createLobby(request.getPlayerId(), request.getGameSettings());
         return ResponseEntity.status(HttpStatus.CREATED).body(new LobbyResponse(lobby));
     }
 
@@ -53,8 +53,8 @@ public class LobbyController {
     @DeleteMapping("/{lobbyId}")
     public ResponseEntity<Void> deleteLobby(
             @PathVariable String lobbyId,
-            @RequestHeader("X-Host-Id") String hostId) {
-        lobbyService.deleteLobby(lobbyId, hostId);
+            @RequestHeader("X-Admin-Id") String adminId) {
+        lobbyService.deleteLobby(lobbyId, adminId);
         return ResponseEntity.noContent().build();
     }
 
@@ -74,11 +74,11 @@ public class LobbyController {
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{lobbyId}/players/{playerId}")
-    public ResponseEntity<Void> removePlayer(
+    @PostMapping("/{lobbyId}/players/{playerId}/leave")
+    public ResponseEntity<Void> playerLeaves(
             @PathVariable String lobbyId,
             @PathVariable String playerId) {
-        lobbyService.removePlayer(lobbyId, playerId);
+        lobbyService.playerLeaves(lobbyId, playerId);
         return ResponseEntity.noContent().build();
     }
 }

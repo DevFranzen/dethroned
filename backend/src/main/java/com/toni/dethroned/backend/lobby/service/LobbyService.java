@@ -6,7 +6,7 @@ import com.toni.dethroned.backend.lobby.domain.LobbyStatus;
 import com.toni.dethroned.backend.lobby.domain.Player;
 import com.toni.dethroned.backend.lobby.domain.PlayerRole;
 import com.toni.dethroned.backend.lobby.domain.PlayerStatus;
-import com.toni.dethroned.backend.lobby.exception.InvalidHostException;
+import com.toni.dethroned.backend.lobby.exception.InvalidAdminException;
 import com.toni.dethroned.backend.lobby.exception.LobbyFullException;
 import com.toni.dethroned.backend.lobby.exception.LobbyNotFoundException;
 import com.toni.dethroned.backend.lobby.exception.PlayerNotFoundException;
@@ -24,11 +24,16 @@ public class LobbyService {
     private final Map<String, Lobby> lobbies = new ConcurrentHashMap<>();
     private final Map<String, String> codeToLobbyId = new ConcurrentHashMap<>();
 
-    public Lobby createLobby(String hostId, GameSettings settings) {
+    public Lobby createLobby(String playerId, GameSettings settings) {
         String lobbyId = UUID.randomUUID().toString();
         String code = generateUniqueLobbyCode();
 
-        Lobby lobby = new Lobby(lobbyId, code, hostId, settings);
+        Lobby lobby = new Lobby(lobbyId, code, playerId, settings);
+
+        // Creator wird automatisch Admin und Member der Lobby
+        Player creatorPlayer = new Player(playerId, "Admin", PlayerRole.PLAYER);
+        lobby.addPlayer(creatorPlayer);
+
         lobbies.put(lobbyId, lobby);
         codeToLobbyId.put(code, lobbyId);
 
@@ -61,15 +66,23 @@ public class LobbyService {
         return lobbies.values();
     }
 
-    public void deleteLobby(String lobbyId, String hostId) {
+    public void deleteLobby(String lobbyId, String adminId) {
         Lobby lobby = getLobbyById(lobbyId);
 
-        if (!lobby.getHostId().equals(hostId)) {
-            throw new InvalidHostException("Only the host can delete the lobby");
+        if (!lobby.getAdminId().equals(adminId)) {
+            throw new InvalidAdminException("Only the admin can delete the lobby");
         }
 
         lobbies.remove(lobbyId);
         codeToLobbyId.remove(lobby.getCode());
+    }
+
+    private void deleteLobbyInternal(String lobbyId) {
+        Lobby lobby = lobbies.get(lobbyId);
+        if (lobby != null) {
+            lobbies.remove(lobbyId);
+            codeToLobbyId.remove(lobby.getCode());
+        }
     }
 
     public Player addPlayer(String lobbyId, String username, PlayerRole role) {
@@ -86,14 +99,27 @@ public class LobbyService {
         return player;
     }
 
-    public void removePlayer(String lobbyId, String playerId) {
+    public void playerLeaves(String lobbyId, String playerId) {
         Lobby lobby = getLobbyById(lobbyId);
 
         if (lobby.getPlayer(playerId) == null) {
             throw new PlayerNotFoundException("Player not found: " + playerId);
         }
 
+        boolean wasAdmin = lobby.getAdminId().equals(playerId);
+
         lobby.removePlayer(playerId);
+
+        // Wenn letzter Player: Lobby löschen
+        if (lobby.isEmpty()) {
+            deleteLobbyInternal(lobbyId);
+            return;
+        }
+
+        // Wenn Admin verlässt: Admin-Rechte an ältesten Player
+        if (wasAdmin) {
+            lobby.transferAdminToOldestPlayer();
+        }
     }
 
     public void markPlayerReady(String lobbyId, String playerId) {

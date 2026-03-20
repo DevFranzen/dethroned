@@ -1,6 +1,6 @@
 package com.toni.dethroned.backend.config;
 
-import com.toni.dethroned.backend.lobby.exception.InvalidHostException;
+import com.toni.dethroned.backend.lobby.exception.InvalidAdminException;
 import com.toni.dethroned.backend.lobby.exception.LobbyFullException;
 import com.toni.dethroned.backend.lobby.exception.LobbyNotFoundException;
 import com.toni.dethroned.backend.lobby.exception.PlayerNotFoundException;
@@ -30,8 +30,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse(e.getMessage()));
     }
 
-    @ExceptionHandler(InvalidHostException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidHost(InvalidHostException e) {
+    @ExceptionHandler(InvalidAdminException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidAdmin(InvalidAdminException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse(e.getMessage()));
     }
 

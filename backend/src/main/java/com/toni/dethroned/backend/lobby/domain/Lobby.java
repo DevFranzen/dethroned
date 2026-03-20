@@ -7,7 +7,7 @@ import java.util.Map;
 public class Lobby {
     private String id;
     private String code;
-    private String hostId;
+    private String adminId;
     private String displayClientId;
     private LobbyStatus status;
     private Map<String, Player> players;
@@ -15,10 +15,10 @@ public class Lobby {
     private Instant createdAt;
     private Instant lastActivity;
 
-    public Lobby(String id, String code, String hostId, GameSettings settings) {
+    public Lobby(String id, String code, String adminId, GameSettings settings) {
         this.id = id;
         this.code = code;
-        this.hostId = hostId;
+        this.adminId = adminId;
         this.settings = settings;
         this.status = LobbyStatus.OPEN;
         this.players = new HashMap<>();
@@ -35,8 +35,13 @@ public class Lobby {
         return code;
     }
 
-    public String getHostId() {
-        return hostId;
+    public String getAdminId() {
+        return adminId;
+    }
+
+    public void setAdminId(String adminId) {
+        this.adminId = adminId;
+        this.lastActivity = Instant.now();
     }
 
     public String getDisplayClientId() {
@@ -102,5 +107,24 @@ public class Lobby {
 
     public boolean canStart() {
         return players.size() >= settings.getMinPlayers() && allPlayersReady();
+    }
+
+    public boolean isEmpty() {
+        return players.isEmpty();
+    }
+
+    public void transferAdminToOldestPlayer() {
+        if (players.isEmpty()) {
+            return;
+        }
+
+        Player oldestPlayer = players.values().stream()
+                .min((p1, p2) -> p1.getJoinedAt().compareTo(p2.getJoinedAt()))
+                .orElse(null);
+
+        if (oldestPlayer != null) {
+            this.adminId = oldestPlayer.getId();
+            updateLastActivity();
+        }
     }
 }
