@@ -1,8 +1,14 @@
 package com.toni.dethroned.backend.websocket.handler;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.toni.dethroned.backend.game.domain.Game;
+import com.toni.dethroned.backend.lobby.domain.LobbyStatus;
+import com.toni.dethroned.backend.lobby.dto.PlayerResponse;
 import com.toni.dethroned.backend.lobby.service.LobbyService;
 import com.toni.dethroned.backend.websocket.domain.ConnectionGroup;
 import com.toni.dethroned.backend.websocket.dto.ConnectionResponse;
+import com.toni.dethroned.backend.websocket.dto.GameStartedEvent;
 import com.toni.dethroned.backend.websocket.dto.PlayerConnectedEvent;
 import com.toni.dethroned.backend.websocket.dto.PlayerDisconnectedEvent;
 import com.toni.dethroned.backend.websocket.service.SessionVerificationService;
@@ -14,6 +20,9 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * WebSocket Handler for game connections.
@@ -107,12 +116,121 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /**
      * Called when the client sends a message.
-     * Currently not implemented - can be extended later for game commands.
+     * Handles game commands like START_GAME
      */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        // Messages from client could be processed here for game commands
-        // Not necessary for this phase
+        String payload = message.getPayload();
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            JsonNode node = mapper.readTree(payload);
+            String messageType = node.get("type").asText();
+
+            // Extract playerId and sessionId from URI
+            String playerId = extractPlayerId(session);
+            String sessionId = extractSessionId(session);
+
+            if ("START_GAME".equals(messageType)) {
+                handleStartGameRequest(session, playerId, sessionId);
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            sendErrorMessage(session, "PARSE_ERROR", "Invalid message format");
+        }
+    }
+
+    /**
+     * Handles the START_GAME request
+     */
+    private void handleStartGameRequest(WebSocketSession session, String playerId, String sessionId) {
+        try {
+            // Get lobby
+            var lobby = lobbyService.getLobbyById(sessionId);
+
+            // Check admin permission
+            if (!lobby.getAdminId().equals(playerId)) {
+                sendErrorMessage(session, "UNAUTHORIZED", "Only lobby admin can start game");
+                return;
+            }
+
+            // Check if lobby can start
+            if (!lobby.canStart()) {
+                sendErrorMessage(session, "INVALID_STATE", "Lobby cannot start: waiting for players or not all ready");
+                return;
+            }
+
+            // Create Game
+            Game game = new Game(
+                lobby.getConnectionGroup(),
+                lobby.getSettings(),
+                lobby.getPlayers()
+            );
+
+            // Update lobby
+            lobby.setStatus(LobbyStatus.IN_PROGRESS);
+            lobby.setGame(game);
+
+            // Broadcast game started event
+            ConnectionGroup connectionGroup = lobby.getConnectionGroup();
+            GameStartedEvent event = new GameStartedEvent(
+                game.getGameId(),
+                System.currentTimeMillis(),
+                lobby.getSettings(),
+                lobby.getPlayers().values().stream()
+                    .map(PlayerResponse::new)
+                    .collect(Collectors.toList())
+            );
+            connectionGroup.broadcastAll(event);
+
+        } catch (RuntimeException e) {
+            sendErrorMessage(session, "ERROR", "Failed to start game");
+        } catch (IOException e) {
+            // Broadcast error
+            sendErrorMessage(session, "ERROR", "Failed to broadcast game start");
+        }
+    }
+
+    /**
+     * Sends an error message to the client
+     */
+    private void sendErrorMessage(WebSocketSession session, String status, String message) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> error = new HashMap<>();
+            error.put("type", "ERROR");
+            error.put("status", status);
+            error.put("message", message);
+            error.put("timestamp", System.currentTimeMillis());
+
+            String json = mapper.writeValueAsString(error);
+            session.sendMessage(new TextMessage(json));
+        } catch (IOException e) {
+            // Silently fail
+        }
+    }
+
+    /**
+     * Extracts playerId from WebSocket URI
+     */
+    private String extractPlayerId(WebSocketSession session) {
+        String uri = session.getUri().toString();
+        String[] parts = uri.split("/");
+        if (parts.length >= 5) {
+            return parts[parts.length - 3];
+        }
+        return null;
+    }
+
+    /**
+     * Extracts sessionId from WebSocket URI
+     */
+    private String extractSessionId(WebSocketSession session) {
+        String uri = session.getUri().toString();
+        String[] parts = uri.split("/");
+        if (parts.length >= 5) {
+            return parts[parts.length - 1];
+        }
+        return null;
     }
 
     /**

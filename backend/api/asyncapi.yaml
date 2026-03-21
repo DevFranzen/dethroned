@@ -56,6 +56,10 @@ channels:
         $ref: '#/components/messages/PlayerConnectedEvent'
       PlayerDisconnectedEvent:
         $ref: '#/components/messages/PlayerDisconnectedEvent'
+      StartGameRequest:
+        $ref: '#/components/messages/StartGameRequest'
+      GameStartedEvent:
+        $ref: '#/components/messages/GameStartedEvent'
       GameUpdateEvent:
         $ref: '#/components/messages/GameUpdateEvent'
       CustomMessage:
@@ -67,6 +71,7 @@ channels:
       description: Client sends messages or commands to the server
       message:
         oneOf:
+          - $ref: '#/components/messages/StartGameRequest'
           - $ref: '#/components/messages/CustomMessage'
 
     subscribe:
@@ -78,6 +83,7 @@ channels:
         Message Types:
         - Connection establishment (ConnectionResponse)
         - Player join/leave events (PlayerConnectedEvent, PlayerDisconnectedEvent)
+        - Game management (StartGameRequest, GameStartedEvent)
         - Game state updates (GameUpdateEvent)
         - Custom application messages (CustomMessage)
       message:
@@ -85,6 +91,7 @@ channels:
           - $ref: '#/components/messages/ConnectionResponse'
           - $ref: '#/components/messages/PlayerConnectedEvent'
           - $ref: '#/components/messages/PlayerDisconnectedEvent'
+          - $ref: '#/components/messages/GameStartedEvent'
           - $ref: '#/components/messages/GameUpdateEvent'
           - $ref: '#/components/messages/CustomMessage'
 
@@ -204,6 +211,66 @@ components:
             type: PLAYER_DISCONNECTED
             playerId: 550e8400-e29b-41d4-a716-446655440001
             timestamp: 1711035690588
+
+    StartGameRequest:
+      title: Start Game Request
+      description: |
+        Client (admin only) sends a request to start the game in the lobby.
+        Game must meet start conditions: minimum players met and all players ready.
+
+        Permission: Only the lobby admin can send this message
+        Required Conditions:
+        - At least minPlayers players in lobby
+        - All players marked as READY status
+        - Lobby status must be READY
+
+        Format:
+        - Type: START_GAME
+        - No additional payload required
+      payload:
+        $ref: '#/components/schemas/StartGameRequestPayload'
+      examples:
+        - name: StartGame
+          summary: Admin initiates game start
+          payload:
+            type: START_GAME
+
+    GameStartedEvent:
+      title: Game Started Event
+      description: |
+        Server broadcasts when a game successfully starts in a lobby.
+        Contains the game ID, configuration, and participating players.
+
+        Sent To: All connected players in the lobby
+        Triggered By: StartGameRequest from lobby admin
+        Transition: Lobby status changes from READY to IN_PROGRESS
+      payload:
+        $ref: '#/components/schemas/GameStartedEventPayload'
+      examples:
+        - name: GameStart
+          summary: Game successfully started with player list
+          payload:
+            type: GAME_STARTED
+            gameId: 550e8400-e29b-41d4-a716-446655440099
+            timestamp: 1711035690588
+            gameSettings:
+              minPlayers: 2
+              maxPlayers: 4
+              gameMode: elimination
+              timeLimit: 0
+              fieldWidth: 800
+              fieldHeight: 600
+            players:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                username: Alice
+                role: PLAYER
+                status: CONNECTED
+                joinedAt: '2026-03-21T01:30:00Z'
+              - id: 550e8400-e29b-41d4-a716-446655440002
+                username: Bob
+                role: PLAYER
+                status: CONNECTED
+                joinedAt: '2026-03-21T01:31:00Z'
 
     GameUpdateEvent:
       title: Game Update Event
@@ -382,6 +449,124 @@ components:
         - playerId
         - timestamp
 
+    StartGameRequestPayload:
+      title: Start Game Request Payload
+      type: object
+      description: |
+        Client request to start a game in the lobby.
+        Only the lobby admin can send this message.
+        Game must meet start conditions to proceed.
+      properties:
+        type:
+          type: string
+          enum:
+            - START_GAME
+          description: Message type identifier
+      required:
+        - type
+
+    GameStartedEventPayload:
+      title: Game Started Event Payload
+      type: object
+      description: |
+        Event broadcast when a game successfully starts.
+        Contains game ID, configuration, and participating players.
+        Lobby status transitions from READY to IN_PROGRESS.
+      properties:
+        type:
+          type: string
+          enum:
+            - GAME_STARTED
+          description: Event type identifier
+        gameId:
+          type: string
+          format: uuid
+          description: Unique identifier for the started game
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp when game started (milliseconds since epoch)
+        gameSettings:
+          type: object
+          description: Game configuration settings
+          properties:
+            minPlayers:
+              type: integer
+              description: Minimum players required to start
+              example: 2
+            maxPlayers:
+              type: integer
+              description: Maximum players allowed
+              example: 4
+            gameMode:
+              type: string
+              description: Game mode identifier
+              example: elimination
+            timeLimit:
+              type: integer
+              format: int64
+              description: Time limit in milliseconds (0 = unlimited)
+              example: 0
+            fieldWidth:
+              type: number
+              format: float
+              description: Game field width
+              example: 800
+            fieldHeight:
+              type: number
+              format: float
+              description: Game field height
+              example: 600
+          required:
+            - minPlayers
+            - maxPlayers
+            - gameMode
+            - timeLimit
+            - fieldWidth
+            - fieldHeight
+        players:
+          type: array
+          description: List of players participating in the game
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+                description: Player ID
+              username:
+                type: string
+                description: Player username
+              role:
+                type: string
+                enum:
+                  - PLAYER
+                  - SPECTATOR
+                description: Player role in game
+              status:
+                type: string
+                enum:
+                  - CONNECTED
+                  - READY
+                  - PLAYING
+                  - DISCONNECTED
+                description: Player connection status
+              joinedAt:
+                type: string
+                format: date-time
+                description: Timestamp when player joined the lobby
+            required:
+              - id
+              - username
+              - role
+              - status
+      required:
+        - type
+        - gameId
+        - timestamp
+        - gameSettings
+        - players
+
     GameUpdateEventPayload:
       title: Game Update Event Payload
       type: object
@@ -479,6 +664,11 @@ tags:
     description: |
       Player join/leave events and session state changes.
       Real-time notifications about session membership changes.
+
+  - name: Game Management
+    description: |
+      Game initialization and state transitions.
+      Starting games, initialization, and game readiness events.
 
   - name: Game Events
     description: |
