@@ -2,6 +2,9 @@ package com.toni.dethroned.backend.websocket.handler;
 
 import com.toni.dethroned.backend.lobby.service.LobbyService;
 import com.toni.dethroned.backend.websocket.domain.ConnectionGroup;
+import com.toni.dethroned.backend.websocket.dto.ConnectionResponse;
+import com.toni.dethroned.backend.websocket.dto.PlayerConnectedEvent;
+import com.toni.dethroned.backend.websocket.dto.PlayerDisconnectedEvent;
 import com.toni.dethroned.backend.websocket.service.SessionVerificationService;
 import com.toni.dethroned.backend.websocket.service.WebSocketConnectionManager;
 import org.springframework.stereotype.Component;
@@ -58,14 +61,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         // Validation
         if (playerId == null || sessionId == null) {
-            sendConnectionResponse(session, "{\"status\":\"AUTHENTICATION_FAILED\",\"message\":\"Missing playerId or sessionId\"}");
+            sendConnectionResponse(session, ConnectionResponse.authenticationFailed("Missing playerId or sessionId"));
             session.close();
             return;
         }
 
         // Verification: Check if player is in the lobby
         if (!verificationService.verifyGroupAccess(playerId, sessionId)) {
-            sendConnectionResponse(session, "{\"status\":\"UNAUTHORIZED\",\"message\":\"Player is not authorized to access this session\"}");
+            sendConnectionResponse(session, ConnectionResponse.unauthorized("Player is not authorized to access this session"));
             session.close();
             return;
         }
@@ -76,7 +79,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             var lobby = lobbyService.getLobbyById(sessionId);
             connectionGroup = lobby.getConnectionGroup();
         } catch (Exception e) {
-            sendConnectionResponse(session, "{\"status\":\"SESSION_INVALID\",\"message\":\"Session not found\"}");
+            sendConnectionResponse(session, ConnectionResponse.sessionInvalid("Session not found"));
             session.close();
             return;
         }
@@ -85,19 +88,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         connectionGroup.addConnection(playerId, session);
 
         // Send success response
-        String successResponse = String.format(
-            "{\"status\":\"CONNECTED\",\"message\":\"Connected successfully\",\"playerId\":\"%s\",\"sessionId\":\"%s\"}",
-            playerId, sessionId
-        );
-        sendConnectionResponse(session, successResponse);
+        try {
+            sendConnectionResponse(session, ConnectionResponse.connected(playerId, sessionId));
+        } catch (IOException e) {
+            return;
+        }
 
         // Broadcast player connected event to all other players in the group
-        String connectedMessage = String.format(
-            "{\"type\":\"PLAYER_CONNECTED\",\"playerId\":\"%s\",\"timestamp\":%d}",
-            playerId,
-            System.currentTimeMillis()
-        );
-        connectionGroup.broadcastAll(connectedMessage, playerId);
+        try {
+            connectionGroup.broadcastAll(
+                new PlayerConnectedEvent(playerId, System.currentTimeMillis()),
+                playerId
+            );
+        } catch (IOException e) {
+            // Broadcast error - continue anyway
+        }
     }
 
     /**
@@ -141,12 +146,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 connectionGroup.removeConnection(playerId);
 
                 // Broadcast disconnect to remaining players
-                String disconnectMessage = String.format(
-                    "{\"type\":\"PLAYER_DISCONNECTED\",\"playerId\":\"%s\",\"timestamp\":%d}",
-                    playerId,
-                    System.currentTimeMillis()
-                );
-                connectionGroup.broadcastAll(disconnectMessage, playerId);
+                try {
+                    connectionGroup.broadcastAll(
+                        new PlayerDisconnectedEvent(playerId, System.currentTimeMillis()),
+                        playerId
+                    );
+                } catch (IOException e) {
+                    // Broadcast error - continue anyway
+                }
             } catch (Exception e) {
                 // Lobby no longer exists or other error
             }
@@ -162,9 +169,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Helper method to send a ConnectionResponse as JSON string
+     * Helper method to send a ConnectionResponse
      */
-    private void sendConnectionResponse(WebSocketSession session, String jsonResponse) {
+    private void sendConnectionResponse(WebSocketSession session, ConnectionResponse response) throws IOException {
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String jsonResponse = objectMapper.writeValueAsString(response);
         try {
             session.sendMessage(new TextMessage(jsonResponse));
         } catch (IOException e) {

@@ -1,5 +1,6 @@
 package com.toni.dethroned.backend.websocket.domain;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -20,10 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConnectionGroup {
     private final String groupId;
     private final Map<String, PlayerConnection> playerConnections;
+    private final ObjectMapper objectMapper;
 
     public ConnectionGroup(String groupId) {
         this.groupId = groupId;
         this.playerConnections = new ConcurrentHashMap<>();
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -91,21 +94,26 @@ public class ConnectionGroup {
     }
 
     /**
-     * Sends a message to all connected players in this group.
+     * Sends a message object to all connected players in this group.
+     * Automatically serializes the object to JSON.
      *
-     * @param message Message as JSON string
+     * @param message Message object to be serialized
+     * @throws IOException if serialization fails
      */
-    public void broadcastAll(String message) {
+    public void broadcastAll(Object message) throws IOException {
         broadcastAll(message, null);
     }
 
     /**
-     * Sends a message to all connected players except one.
+     * Sends a message object to all connected players except one.
+     * Automatically serializes the object to JSON.
      *
-     * @param message Message as JSON string
+     * @param message Message object to be serialized
      * @param excludePlayerId Player ID to be excluded (null if no one is excluded)
+     * @throws IOException if serialization fails
      */
-    public void broadcastAll(String message, String excludePlayerId) {
+    public void broadcastAll(Object message, String excludePlayerId) throws IOException {
+        String jsonMessage = objectMapper.writeValueAsString(message);
         for (PlayerConnection connection : playerConnections.values()) {
             if (excludePlayerId != null && connection.getPlayerId().equals(excludePlayerId)) {
                 continue;
@@ -113,7 +121,7 @@ public class ConnectionGroup {
 
             if (connection.isAlive()) {
                 try {
-                    connection.getWebSocketSession().sendMessage(new TextMessage(message));
+                    connection.getWebSocketSession().sendMessage(new TextMessage(jsonMessage));
                     connection.updateActivity();
                 } catch (IOException e) {
                     // Connection is broken, will be cleaned up at next disconnect
@@ -123,19 +131,22 @@ public class ConnectionGroup {
     }
 
     /**
-     * Sends a message to a specific player.
+     * Sends a message object to a specific player.
+     * Automatically serializes the object to JSON.
      *
      * @param playerId Player ID
-     * @param message Message as JSON string
+     * @param message Message object to be serialized
+     * @throws IOException if serialization fails
      */
-    public void sendTo(String playerId, String message) {
+    public void sendTo(String playerId, Object message) throws IOException {
+        String jsonMessage = objectMapper.writeValueAsString(message);
         PlayerConnection connection = playerConnections.get(playerId);
         if (connection == null || !connection.isAlive()) {
             return;
         }
 
         try {
-            connection.getWebSocketSession().sendMessage(new TextMessage(message));
+            connection.getWebSocketSession().sendMessage(new TextMessage(jsonMessage));
             connection.updateActivity();
         } catch (IOException e) {
             // Connection is broken, will be cleaned up at next disconnect
