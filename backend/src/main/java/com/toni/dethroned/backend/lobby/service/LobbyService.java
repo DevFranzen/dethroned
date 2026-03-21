@@ -132,8 +132,9 @@ public class LobbyService {
         player.setStatus(PlayerStatus.READY);
         lobby.updateLastActivity();
 
-        // Check if lobby can transition to READY
-        if (lobby.canStart() && lobby.getStatus() == LobbyStatus.OPEN) {
+        // Check if lobby can transition to READY (all players ready + min players met)
+        if (lobby.allPlayersReady() && lobby.getPlayers().size() >= lobby.getSettings().getMinPlayers()
+            && lobby.getStatus() == LobbyStatus.OPEN) {
             lobby.setStatus(LobbyStatus.READY);
         }
     }

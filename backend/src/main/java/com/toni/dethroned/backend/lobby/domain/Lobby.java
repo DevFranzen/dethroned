@@ -112,7 +112,7 @@ public class Lobby {
     }
 
     public boolean canStart() {
-        return players.size() >= settings.getMinPlayers() && allPlayersReady();
+        return players.size() >= settings.getMinPlayers();
     }
 
     public boolean isEmpty() {
