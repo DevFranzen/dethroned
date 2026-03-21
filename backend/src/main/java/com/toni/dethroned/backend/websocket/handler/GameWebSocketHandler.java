@@ -3,14 +3,20 @@ package com.toni.dethroned.backend.websocket.handler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toni.dethroned.backend.game.domain.Game;
+import com.toni.dethroned.backend.lobby.domain.Lobby;
 import com.toni.dethroned.backend.lobby.domain.LobbyStatus;
 import com.toni.dethroned.backend.lobby.dto.PlayerResponse;
 import com.toni.dethroned.backend.lobby.service.LobbyService;
 import com.toni.dethroned.backend.websocket.domain.ConnectionGroup;
+import com.toni.dethroned.backend.websocket.dto.AdminTransferredEvent;
 import com.toni.dethroned.backend.websocket.dto.ConnectionResponse;
 import com.toni.dethroned.backend.websocket.dto.GameStartedEvent;
+import com.toni.dethroned.backend.websocket.dto.LobbyDeletedEvent;
+import com.toni.dethroned.backend.websocket.dto.LobbyStateEvent;
 import com.toni.dethroned.backend.websocket.dto.PlayerConnectedEvent;
 import com.toni.dethroned.backend.websocket.dto.PlayerDisconnectedEvent;
+import com.toni.dethroned.backend.websocket.dto.PlayerLeftEvent;
+import com.toni.dethroned.backend.websocket.dto.PlayerReadyEvent;
 import com.toni.dethroned.backend.websocket.service.SessionVerificationService;
 import com.toni.dethroned.backend.websocket.service.WebSocketConnectionManager;
 import org.springframework.stereotype.Component;
@@ -21,6 +27,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -116,7 +123,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /**
      * Called when the client sends a message.
-     * Handles game commands like START_GAME
+     * Routes to appropriate handler based on message type
      */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -133,6 +140,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             if ("START_GAME".equals(messageType)) {
                 handleStartGameRequest(session, playerId, sessionId);
+            } else if ("GET_LOBBY".equals(messageType)) {
+                handleGetLobby(session, playerId, sessionId);
+            } else if ("DELETE_LOBBY".equals(messageType)) {
+                handleDeleteLobby(session, playerId, sessionId);
+            } else if ("MARK_READY".equals(messageType)) {
+                handleMarkReady(session, playerId, sessionId);
+            } else if ("PLAYER_LEAVE".equals(messageType)) {
+                handlePlayerLeave(session, playerId, sessionId);
             }
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             sendErrorMessage(session, "PARSE_ERROR", "Invalid message format");
@@ -187,6 +202,130 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } catch (IOException e) {
             // Broadcast error
             sendErrorMessage(session, "ERROR", "Failed to broadcast game start");
+        }
+    }
+
+    /**
+     * Handles GET_LOBBY request - sends current lobby state to requester only
+     */
+    private void handleGetLobby(WebSocketSession session, String playerId, String lobbyId) {
+        try {
+            var lobby = lobbyService.getLobbyById(lobbyId);
+
+            LobbyStateEvent event = new LobbyStateEvent(
+                lobby.getId(),
+                lobby.getCode(),
+                lobby.getStatus(),
+                lobby.getAdminId(),
+                lobby.getPlayers(),
+                lobby.getSettings()
+            );
+
+            // Unicast to requester only
+            ConnectionGroup connectionGroup = lobby.getConnectionGroup();
+            connectionGroup.sendTo(playerId, event);
+
+        } catch (RuntimeException e) {
+            sendErrorMessage(session, "LOBBY_NOT_FOUND", "Lobby not found");
+        } catch (IOException e) {
+            sendErrorMessage(session, "ERROR", "Failed to send lobby state");
+        }
+    }
+
+    /**
+     * Handles DELETE_LOBBY request - admin only
+     */
+    private void handleDeleteLobby(WebSocketSession session, String playerId, String lobbyId) {
+        try {
+            var lobby = lobbyService.getLobbyById(lobbyId);
+
+            // Check admin permission
+            if (!lobby.getAdminId().equals(playerId)) {
+                sendErrorMessage(session, "UNAUTHORIZED", "Only lobby admin can delete lobby");
+                return;
+            }
+
+            // Delete lobby
+            lobbyService.deleteLobby(lobbyId, playerId);
+
+            // Broadcast deletion event to all
+            ConnectionGroup connectionGroup = lobby.getConnectionGroup();
+            LobbyDeletedEvent event = new LobbyDeletedEvent(lobbyId, "ADMIN_DELETED");
+            connectionGroup.broadcastAll(event);
+
+        } catch (RuntimeException e) {
+            sendErrorMessage(session, "LOBBY_NOT_FOUND", "Lobby not found");
+        } catch (IOException e) {
+            sendErrorMessage(session, "ERROR", "Failed to broadcast lobby deletion");
+        }
+    }
+
+    /**
+     * Handles MARK_READY request
+     */
+    private void handleMarkReady(WebSocketSession session, String playerId, String lobbyId) {
+        try {
+            var lobby = lobbyService.getLobbyById(lobbyId);
+
+            // Mark player as ready
+            lobbyService.markPlayerReady(lobbyId, playerId);
+
+            // Broadcast ready event
+            ConnectionGroup connectionGroup = lobby.getConnectionGroup();
+            PlayerReadyEvent event = new PlayerReadyEvent(playerId, lobby.getStatus());
+            connectionGroup.broadcastAll(event);
+
+        } catch (RuntimeException e) {
+            sendErrorMessage(session, "PLAYER_NOT_FOUND", "Player not found in lobby");
+        } catch (IOException e) {
+            sendErrorMessage(session, "ERROR", "Failed to broadcast ready status");
+        }
+    }
+
+    /**
+     * Handles PLAYER_LEAVE request
+     */
+    private void handlePlayerLeave(WebSocketSession session, String playerId, String lobbyId) {
+        try {
+            var lobby = lobbyService.getLobbyById(lobbyId);
+            String oldAdminId = lobby.getAdminId();
+            ConnectionGroup connectionGroup = lobby.getConnectionGroup();
+
+            // Player leaves lobby
+            lobbyService.playerLeaves(lobbyId, playerId);
+
+            // Check if lobby still exists
+            try {
+                var updatedLobby = lobbyService.getLobbyById(lobbyId);
+
+                // Check if admin was transferred
+                if (!updatedLobby.getAdminId().equals(oldAdminId)) {
+                    // Admin was transferred
+                    AdminTransferredEvent event = new AdminTransferredEvent(
+                        oldAdminId,
+                        updatedLobby.getAdminId(),
+                        lobbyId
+                    );
+                    connectionGroup.broadcastAll(event);
+                } else {
+                    // Regular player left
+                    PlayerLeftEvent event = new PlayerLeftEvent(
+                        playerId,
+                        lobbyId,
+                        updatedLobby.getPlayers()
+                    );
+                    connectionGroup.broadcastAll(event);
+                }
+            } catch (RuntimeException e) {
+                // Lobby was deleted (last player left)
+                LobbyDeletedEvent event = new LobbyDeletedEvent(lobbyId, "LAST_PLAYER_LEFT");
+                connectionGroup.broadcastAll(event);
+            }
+
+        } catch (RuntimeException e) {
+            sendErrorMessage(session, "PLAYER_NOT_FOUND", "Player not found in lobby");
+        } catch (IOException e) {
+            sendErrorMessage(session, "ERROR", "Failed to broadcast player leave");
         }
     }
 

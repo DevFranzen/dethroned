@@ -60,6 +60,26 @@ channels:
         $ref: '#/components/messages/StartGameRequest'
       GameStartedEvent:
         $ref: '#/components/messages/GameStartedEvent'
+      GetLobbyRequest:
+        $ref: '#/components/messages/GetLobbyRequest'
+      LobbyStateEvent:
+        $ref: '#/components/messages/LobbyStateEvent'
+      DeleteLobbyRequest:
+        $ref: '#/components/messages/DeleteLobbyRequest'
+      LobbyDeletedEvent:
+        $ref: '#/components/messages/LobbyDeletedEvent'
+      MarkReadyRequest:
+        $ref: '#/components/messages/MarkReadyRequest'
+      PlayerReadyEvent:
+        $ref: '#/components/messages/PlayerReadyEvent'
+      PlayerLeaveRequest:
+        $ref: '#/components/messages/PlayerLeaveRequest'
+      PlayerLeftEvent:
+        $ref: '#/components/messages/PlayerLeftEvent'
+      AdminTransferredEvent:
+        $ref: '#/components/messages/AdminTransferredEvent'
+      ErrorEvent:
+        $ref: '#/components/messages/ErrorEvent'
       GameUpdateEvent:
         $ref: '#/components/messages/GameUpdateEvent'
       CustomMessage:
@@ -68,10 +88,14 @@ channels:
     publish:
       operationId: sendToServer
       title: Send Message to Server
-      description: Client sends messages or commands to the server
+      description: Client sends messages or commands to the server for lobby and game operations
       message:
         oneOf:
           - $ref: '#/components/messages/StartGameRequest'
+          - $ref: '#/components/messages/GetLobbyRequest'
+          - $ref: '#/components/messages/DeleteLobbyRequest'
+          - $ref: '#/components/messages/MarkReadyRequest'
+          - $ref: '#/components/messages/PlayerLeaveRequest'
           - $ref: '#/components/messages/CustomMessage'
 
     subscribe:
@@ -80,19 +104,26 @@ channels:
       description: |
         Server sends connection responses, events, and game updates to connected clients.
 
-        Message Types:
-        - Connection establishment (ConnectionResponse)
-        - Player join/leave events (PlayerConnectedEvent, PlayerDisconnectedEvent)
-        - Game management (StartGameRequest, GameStartedEvent)
-        - Game state updates (GameUpdateEvent)
-        - Custom application messages (CustomMessage)
+        Message Categories:
+        - Connection: ConnectionResponse
+        - Player Events: PlayerConnectedEvent, PlayerDisconnectedEvent
+        - Lobby Operations: LobbyStateEvent, LobbyDeletedEvent, PlayerReadyEvent, PlayerLeftEvent, AdminTransferredEvent
+        - Game Management: GameStartedEvent, GameUpdateEvent
+        - Error Handling: ErrorEvent
+        - Custom Messages: CustomMessage
       message:
         oneOf:
           - $ref: '#/components/messages/ConnectionResponse'
           - $ref: '#/components/messages/PlayerConnectedEvent'
           - $ref: '#/components/messages/PlayerDisconnectedEvent'
+          - $ref: '#/components/messages/LobbyStateEvent'
+          - $ref: '#/components/messages/LobbyDeletedEvent'
+          - $ref: '#/components/messages/PlayerReadyEvent'
+          - $ref: '#/components/messages/PlayerLeftEvent'
+          - $ref: '#/components/messages/AdminTransferredEvent'
           - $ref: '#/components/messages/GameStartedEvent'
           - $ref: '#/components/messages/GameUpdateEvent'
+          - $ref: '#/components/messages/ErrorEvent'
           - $ref: '#/components/messages/CustomMessage'
 
 components:
@@ -271,6 +302,229 @@ components:
                 role: PLAYER
                 status: CONNECTED
                 joinedAt: '2026-03-21T01:31:00Z'
+
+    GetLobbyRequest:
+      title: Get Lobby State Request
+      description: |
+        Client requests the current state of the lobby.
+        Returns complete lobby information including players, settings, and status.
+
+        Permission: Any player in the lobby
+        Response: LobbyStateEvent (unicast to requester)
+      payload:
+        $ref: '#/components/schemas/GetLobbyRequestPayload'
+      examples:
+        - name: GetLobbyState
+          summary: Player requests current lobby information
+          payload:
+            type: GET_LOBBY
+
+    LobbyStateEvent:
+      title: Lobby State Event
+      description: |
+        Server sends current lobby state to a requesting player.
+        Contains all lobby information: players, settings, status, admin.
+
+        Sent To: Only the requesting player (unicast)
+        Triggered By: GetLobbyRequest
+      payload:
+        $ref: '#/components/schemas/LobbyStateEventPayload'
+      examples:
+        - name: LobbyState
+          summary: Current lobby state with all players
+          payload:
+            type: LOBBY_STATE
+            lobbyId: d9c65893-bf77-416c-a9c6-cddd43905215
+            code: ABC123
+            status: OPEN
+            adminId: 550e8400-e29b-41d4-a716-446655440001
+            timestamp: 1711035690588
+            players:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                username: Alice
+                role: PLAYER
+                status: CONNECTED
+                joinedAt: '2026-03-21T01:30:00Z'
+              - id: 550e8400-e29b-41d4-a716-446655440002
+                username: Bob
+                role: PLAYER
+                status: CONNECTED
+                joinedAt: '2026-03-21T01:31:00Z'
+            settings:
+              minPlayers: 2
+              maxPlayers: 4
+              gameMode: elimination
+              timeLimit: 0
+              fieldWidth: 800
+              fieldHeight: 600
+
+    DeleteLobbyRequest:
+      title: Delete Lobby Request
+      description: |
+        Admin requests to delete/close the lobby.
+        All connected players are removed and the lobby is deleted.
+
+        Permission: Only lobby admin
+        Broadcast: LobbyDeletedEvent to all connected players
+      payload:
+        $ref: '#/components/schemas/DeleteLobbyRequestPayload'
+      examples:
+        - name: DeleteLobby
+          summary: Admin deletes the lobby
+          payload:
+            type: DELETE_LOBBY
+
+    LobbyDeletedEvent:
+      title: Lobby Deleted Event
+      description: |
+        Server broadcasts when a lobby is deleted.
+        Indicates whether it was admin-initiated or last player left.
+
+        Sent To: All connected players in the lobby
+        Reasons: ADMIN_DELETED or LAST_PLAYER_LEFT
+      payload:
+        $ref: '#/components/schemas/LobbyDeletedEventPayload'
+      examples:
+        - name: AdminDeletedLobby
+          summary: Admin deleted the lobby
+          payload:
+            type: LOBBY_DELETED
+            lobbyId: d9c65893-bf77-416c-a9c6-cddd43905215
+            reason: ADMIN_DELETED
+            timestamp: 1711035690588
+
+        - name: LastPlayerLeft
+          summary: Lobby deleted because last player left
+          payload:
+            type: LOBBY_DELETED
+            lobbyId: d9c65893-bf77-416c-a9c6-cddd43905215
+            reason: LAST_PLAYER_LEFT
+            timestamp: 1711035690588
+
+    MarkReadyRequest:
+      title: Mark Ready Request
+      description: |
+        Player marks themselves as ready to start the game.
+        If all players are ready and minimum players met, lobby auto-transitions to READY.
+
+        Permission: Any player in the lobby
+        Auto-Transition: Lobby status becomes READY when conditions met
+      payload:
+        $ref: '#/components/schemas/MarkReadyRequestPayload'
+      examples:
+        - name: MarkReady
+          summary: Player marks themselves ready
+          payload:
+            type: MARK_READY
+
+    PlayerReadyEvent:
+      title: Player Ready Event
+      description: |
+        Server broadcasts when a player marks ready.
+        Includes updated lobby status.
+
+        Sent To: All connected players in the lobby
+        Triggered By: MarkReadyRequest
+      payload:
+        $ref: '#/components/schemas/PlayerReadyEventPayload'
+      examples:
+        - name: PlayerReady
+          summary: Player is ready, lobby status updated
+          payload:
+            type: PLAYER_READY
+            playerId: 550e8400-e29b-41d4-a716-446655440001
+            lobbyStatus: OPEN
+            timestamp: 1711035690588
+
+    PlayerLeaveRequest:
+      title: Player Leave Request
+      description: |
+        Player requests to leave the lobby.
+        If player is admin, admin is transferred to oldest remaining player.
+        If player is last, lobby is deleted.
+
+        Permission: Any player in the lobby
+        Side Effects: Admin transfer or lobby deletion
+      payload:
+        $ref: '#/components/schemas/PlayerLeaveRequestPayload'
+      examples:
+        - name: PlayerLeave
+          summary: Player leaves the lobby
+          payload:
+            type: PLAYER_LEAVE
+
+    PlayerLeftEvent:
+      title: Player Left Event
+      description: |
+        Server broadcasts when a player leaves the lobby.
+        Contains updated player list.
+
+        Sent To: All remaining connected players
+        Triggered By: PlayerLeaveRequest
+      payload:
+        $ref: '#/components/schemas/PlayerLeftEventPayload'
+      examples:
+        - name: PlayerLeftLobby
+          summary: Regular player left the lobby
+          payload:
+            type: PLAYER_LEFT
+            playerId: 550e8400-e29b-41d4-a716-446655440001
+            lobbyId: d9c65893-bf77-416c-a9c6-cddd43905215
+            timestamp: 1711035690588
+            remainingPlayers:
+              - id: 550e8400-e29b-41d4-a716-446655440002
+                username: Bob
+                role: PLAYER
+                status: CONNECTED
+                joinedAt: '2026-03-21T01:31:00Z'
+
+    AdminTransferredEvent:
+      title: Admin Transferred Event
+      description: |
+        Server broadcasts when lobby admin role is transferred.
+        Happens when current admin leaves or is removed.
+
+        Sent To: All remaining connected players
+        Triggered By: PlayerLeaveRequest when admin leaves
+        New Admin: Oldest remaining player (by joinedAt)
+      payload:
+        $ref: '#/components/schemas/AdminTransferredEventPayload'
+      examples:
+        - name: AdminTransferred
+          summary: Admin role transferred to another player
+          payload:
+            type: ADMIN_TRANSFERRED
+            oldAdminId: 550e8400-e29b-41d4-a716-446655440001
+            newAdminId: 550e8400-e29b-41d4-a716-446655440002
+            lobbyId: d9c65893-bf77-416c-a9c6-cddd43905215
+            timestamp: 1711035690588
+
+    ErrorEvent:
+      title: Error Event
+      description: |
+        Server sends error information when a request fails.
+        Includes error status code and descriptive message.
+
+        Sent To: Requesting player (unicast)
+        Common Status Codes: UNAUTHORIZED, PLAYER_NOT_FOUND, LOBBY_NOT_FOUND, INVALID_STATE, PARSE_ERROR
+      payload:
+        $ref: '#/components/schemas/ErrorEventPayload'
+      examples:
+        - name: UnauthorizedError
+          summary: Player not authorized for action
+          payload:
+            type: ERROR
+            status: UNAUTHORIZED
+            message: Only lobby admin can start game
+            timestamp: 1711035690588
+
+        - name: NotFoundError
+          summary: Resource not found
+          payload:
+            type: ERROR
+            status: PLAYER_NOT_FOUND
+            message: Player not found in lobby
+            timestamp: 1711035690588
 
     GameUpdateEvent:
       title: Game Update Event
@@ -566,6 +820,256 @@ components:
         - timestamp
         - gameSettings
         - players
+
+    GetLobbyRequestPayload:
+      title: Get Lobby Request Payload
+      type: object
+      description: Request to fetch current lobby state
+      properties:
+        type:
+          type: string
+          enum:
+            - GET_LOBBY
+          description: Request type identifier
+      required:
+        - type
+
+    LobbyStateEventPayload:
+      title: Lobby State Event Payload
+      type: object
+      description: Current state of a lobby with all players and settings
+      properties:
+        type:
+          type: string
+          enum:
+            - LOBBY_STATE
+          description: Event type identifier
+        lobbyId:
+          type: string
+          format: uuid
+          description: Unique lobby identifier
+        code:
+          type: string
+          description: Short alphanumeric code for lobby access
+        status:
+          type: string
+          enum:
+            - OPEN
+            - READY
+            - IN_PROGRESS
+            - CLOSED
+          description: Current lobby status
+        adminId:
+          type: string
+          format: uuid
+          description: ID of the lobby administrator
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp (milliseconds since epoch)
+        players:
+          type: array
+          description: List of players in the lobby
+          items:
+            type: object
+        settings:
+          type: object
+          description: Game settings for this lobby
+      required:
+        - type
+        - lobbyId
+        - code
+        - status
+        - adminId
+        - timestamp
+
+    DeleteLobbyRequestPayload:
+      title: Delete Lobby Request Payload
+      type: object
+      description: Request to delete/close a lobby (admin only)
+      properties:
+        type:
+          type: string
+          enum:
+            - DELETE_LOBBY
+          description: Request type identifier
+      required:
+        - type
+
+    LobbyDeletedEventPayload:
+      title: Lobby Deleted Event Payload
+      type: object
+      description: Notification that a lobby has been deleted
+      properties:
+        type:
+          type: string
+          enum:
+            - LOBBY_DELETED
+          description: Event type identifier
+        lobbyId:
+          type: string
+          format: uuid
+          description: ID of deleted lobby
+        reason:
+          type: string
+          enum:
+            - ADMIN_DELETED
+            - LAST_PLAYER_LEFT
+          description: Reason for deletion
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp (milliseconds since epoch)
+      required:
+        - type
+        - lobbyId
+        - reason
+        - timestamp
+
+    MarkReadyRequestPayload:
+      title: Mark Ready Request Payload
+      type: object
+      description: Player marks themselves as ready to start game
+      properties:
+        type:
+          type: string
+          enum:
+            - MARK_READY
+          description: Request type identifier
+      required:
+        - type
+
+    PlayerReadyEventPayload:
+      title: Player Ready Event Payload
+      type: object
+      description: Notification that a player is ready
+      properties:
+        type:
+          type: string
+          enum:
+            - PLAYER_READY
+          description: Event type identifier
+        playerId:
+          type: string
+          format: uuid
+          description: ID of player who is ready
+        lobbyStatus:
+          type: string
+          description: Updated lobby status
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp (milliseconds since epoch)
+      required:
+        - type
+        - playerId
+        - timestamp
+
+    PlayerLeaveRequestPayload:
+      title: Player Leave Request Payload
+      type: object
+      description: Player requests to leave the lobby
+      properties:
+        type:
+          type: string
+          enum:
+            - PLAYER_LEAVE
+          description: Request type identifier
+      required:
+        - type
+
+    PlayerLeftEventPayload:
+      title: Player Left Event Payload
+      type: object
+      description: Notification that a player has left the lobby
+      properties:
+        type:
+          type: string
+          enum:
+            - PLAYER_LEFT
+          description: Event type identifier
+        playerId:
+          type: string
+          format: uuid
+          description: ID of player who left
+        lobbyId:
+          type: string
+          format: uuid
+          description: ID of the lobby
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp (milliseconds since epoch)
+        remainingPlayers:
+          type: array
+          description: List of remaining players in lobby
+          items:
+            type: object
+      required:
+        - type
+        - playerId
+        - lobbyId
+        - timestamp
+
+    AdminTransferredEventPayload:
+      title: Admin Transferred Event Payload
+      type: object
+      description: Notification that admin role was transferred to another player
+      properties:
+        type:
+          type: string
+          enum:
+            - ADMIN_TRANSFERRED
+          description: Event type identifier
+        oldAdminId:
+          type: string
+          format: uuid
+          description: ID of previous admin
+        newAdminId:
+          type: string
+          format: uuid
+          description: ID of new admin
+        lobbyId:
+          type: string
+          format: uuid
+          description: ID of the lobby
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp (milliseconds since epoch)
+      required:
+        - type
+        - oldAdminId
+        - newAdminId
+        - lobbyId
+        - timestamp
+
+    ErrorEventPayload:
+      title: Error Event Payload
+      type: object
+      description: Error response for failed requests
+      properties:
+        type:
+          type: string
+          enum:
+            - ERROR
+          description: Event type identifier
+        status:
+          type: string
+          description: Error status code
+          example: UNAUTHORIZED
+        message:
+          type: string
+          description: Human-readable error message
+        timestamp:
+          type: integer
+          format: int64
+          description: Server timestamp (milliseconds since epoch)
+      required:
+        - type
+        - status
+        - message
+        - timestamp
 
     GameUpdateEventPayload:
       title: Game Update Event Payload
